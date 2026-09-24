@@ -76,7 +76,7 @@ export const Navbar: React.FC = () => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
                 <input
                   type="text"
-                  placeholder="Search products, indie creators, categories..."
+                  placeholder="Search products, sellers & categories"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-11 pr-4 py-2.5 bg-sand-50/70 border border-sand-300/80 rounded-full text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-600 focus:bg-white transition shadow-xs"
@@ -294,7 +294,7 @@ export const Navbar: React.FC = () => {
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
                 <input
                   type="text"
-                  placeholder="Search products or local creators..."
+                  placeholder="Search products, sellers & categories"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 rounded-xl bg-sand-100 border border-sand-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

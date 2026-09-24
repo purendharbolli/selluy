@@ -114,7 +114,7 @@ export const Home: React.FC = () => {
               </div>
               <input
                 type="text"
-                placeholder="Search products, indie creators, or categories..."
+                placeholder="Search products, sellers & categories"
                 value={heroSearch}
                 onChange={(e) => setHeroSearch(e.target.value)}
                 className="w-full px-3 py-2.5 text-stone-900 placeholder-stone-400 text-sm sm:text-base bg-transparent focus:outline-none"

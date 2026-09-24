@@ -67,14 +67,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Dev / Staging fallback verification (123456) when API key is not configured
-    if (!apiKey && cleanToken === '123456') {
-      return res.status(200).json({
-        success: true,
-        message: 'Dev fallback OTP verified successfully.',
-        phone: `+91${cleanPhone}`,
-      });
-    }
+
 
     return res.status(400).json({
       success: false,

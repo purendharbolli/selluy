@@ -98,8 +98,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           body: JSON.stringify({ phone: cleanPhone }),
         });
 
-        if (apiRes.ok) {
-          const apiData = await apiRes.json();
+        const apiData = await apiRes.json().catch(() => ({}));
+
+        if (apiRes.ok && apiData.success) {
           if (apiData.hash) {
             setActiveOtpHash(apiData.hash);
             try {
@@ -109,23 +110,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
           return { success: true, isNewUser };
+        } else {
+          // Gateway error returned from Fast2SMS or validation
+          const errorMsg =
+            apiData.error ||
+            apiData.warning ||
+            apiData.message ||
+            'Unable to dispatch SMS. Please check mobile number or try again.';
+          return { success: false, isNewUser: false, error: errorMsg };
         }
-      } catch (apiErr) {
-        console.info('Fast2SMS endpoint offline/local notice, proceeding with dev flow:', apiErr);
+      } catch (apiErr: any) {
+        console.warn('Network error dispatching OTP:', apiErr);
+        return {
+          success: false,
+          isNewUser: false,
+          error: 'Network connection error. Unable to contact SMS gateway.',
+        };
       }
-
-      // 2. Fallback to Supabase SMS if provider configured
-      if (isSupabaseConfigured()) {
-        try {
-          await supabase.auth.signInWithOtp({
-            phone: `+91${cleanPhone}`,
-          });
-        } catch (smsErr) {
-          console.info('Supabase SMS fallback active.');
-        }
-      }
-
-      return { success: true, isNewUser };
     } catch (err: any) {
       return { success: false, isNewUser: false, error: err.message || 'Failed to send OTP. Please try again.' };
     }
@@ -178,21 +179,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.info('Serverless verify fallback active:', netErr);
       }
 
-      // 2. Dev mode / fallback verification (123456)
-      if (!isVerified) {
-        if (cleanToken === '123456') {
-          isVerified = true;
-        } else if (isSupabaseConfigured()) {
-          try {
-            const { error: supaErr } = await supabase.auth.verifyOtp({
-              phone: `+91${cleanPhone}`,
-              token: cleanToken,
-              type: 'sms',
-            });
-            if (!supaErr) isVerified = true;
-          } catch (e) {
-            console.warn('Supabase verifyOtp notice:', e);
-          }
+      // 2. Supabase SMS verification fallback if configured
+      if (!isVerified && isSupabaseConfigured()) {
+        try {
+          const { error: supaErr } = await supabase.auth.verifyOtp({
+            phone: `+91${cleanPhone}`,
+            token: cleanToken,
+            type: 'sms',
+          });
+          if (!supaErr) isVerified = true;
+        } catch (e) {
+          console.warn('Supabase verifyOtp notice:', e);
         }
       }
 

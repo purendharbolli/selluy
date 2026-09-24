@@ -350,20 +350,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </button>
                 </div>
 
-                <div className="flex justify-center pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOtp(['1', '2', '3', '4', '5', '6']);
-                      setErrorMsg('');
-                    }}
-                    className="inline-flex items-center gap-1.5 text-[11px] text-stone-500 hover:text-blue-600 bg-sand-100/80 hover:bg-blue-50 px-3 py-1 rounded-full border border-sand-200/90 transition cursor-pointer"
-                  >
-                    <span>Demo helper: Auto-fill</span>
-                    <span className="font-bold text-stone-900 bg-white px-1.5 py-0.2 rounded shadow-2xs font-mono">123456</span>
-                  </button>
-                </div>
-
                 <Button
                   type="submit"
                   disabled={isLoading || otp.join('').length !== 6}

@@ -17,6 +17,7 @@ import { useLocation } from '../../context/LocationContext';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { LocationModal } from './LocationModal';
+import { AuthModal } from '../auth/AuthModal';
 
 export const Navbar: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +29,8 @@ export const Navbar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,78 +159,113 @@ export const Navbar: React.FC = () => {
                 )}
               </Link>
 
-              {/* User profile dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 p-1.5 rounded-full hover:bg-sand-100 transition border border-transparent hover:border-sand-300"
-                >
-                  {user?.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="w-8 h-8 rounded-full object-cover border border-sand-300"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-sand-200 flex items-center justify-center text-stone-700">
-                      <UserIcon className="w-4 h-4" />
+              {/* User profile dropdown or Sign In buttons */}
+              {user ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 p-1 rounded-full hover:bg-sand-100 transition border border-sand-300"
+                  >
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-sand-200 flex items-center justify-center text-stone-700">
+                        <UserIcon className="w-4 h-4" />
+                      </div>
+                    )}
+                  </button>
+
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-sand-200 py-2 z-50 animate-fadeIn">
+                      <div className="px-4 py-2 border-b border-sand-100">
+                        <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
+                        <p className="text-xs text-stone-500 capitalize">{role} Account</p>
+                      </div>
+
+                      <Link
+                        to="/explore"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="block px-4 py-2 text-sm text-stone-700 hover:bg-sand-50"
+                      >
+                        Browse Feed
+                      </Link>
+
+                      <Link
+                        to="/wishlist"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="block px-4 py-2 text-sm text-stone-700 hover:bg-sand-50"
+                      >
+                        Saved Creations ({wishlist.length})
+                      </Link>
+
+                      <Link
+                        to="/cart"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="block px-4 py-2 text-sm text-stone-700 hover:bg-sand-50"
+                      >
+                        Shopping Bag ({cartCount})
+                      </Link>
+
+                      {role === 'seller' && (
+                        <Link
+                          to="/seller/dashboard"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="block px-4 py-2 text-sm text-amber-700 font-bold hover:bg-amber-50"
+                        >
+                          Seller Studio
+                        </Link>
+                      )}
+
+                      {role === 'admin' && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="block px-4 py-2 text-sm text-emerald-700 font-bold hover:bg-emerald-50"
+                        >
+                          Admin Console
+                        </Link>
+                      )}
+
+                      <div className="border-t border-sand-100 my-1"></div>
+
+                      <button
+                        onClick={() => {
+                          logout();
+                          setUserMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50"
+                      >
+                        Sign Out
+                      </button>
                     </div>
                   )}
-                </button>
-
-                {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-sand-200 py-2 z-50 animate-fadeIn">
-                    <div className="px-4 py-2 border-b border-sand-100">
-                      <p className="text-sm font-bold text-gray-900 truncate">{user?.name || 'Guest User'}</p>
-                      <p className="text-xs text-stone-500 capitalize">{role} Account</p>
-                    </div>
-
-                    <Link
-                      to="/explore"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="block px-4 py-2 text-sm text-stone-700 hover:bg-sand-50"
-                    >
-                      Browse Marketplace
-                    </Link>
-
-                    <Link
-                      to="/cart"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="block px-4 py-2 text-sm text-stone-700 hover:bg-sand-50"
-                    >
-                      My Cart ({cartCount})
-                    </Link>
-
-                    <Link
-                      to="/seller/dashboard"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="block px-4 py-2 text-sm text-stone-700 hover:bg-sand-50"
-                    >
-                      Seller Dashboard
-                    </Link>
-
-                    <Link
-                      to="/admin"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="block px-4 py-2 text-sm text-stone-700 hover:bg-sand-50"
-                    >
-                      Admin Dashboard
-                    </Link>
-
-                    <div className="border-t border-sand-100 my-1"></div>
-
-                    <button
-                      onClick={() => {
-                        logout();
-                        setUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50"
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="hidden sm:flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setAuthModalMode('signin');
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="text-xs font-bold text-stone-700 hover:text-stone-900 px-3 py-2 rounded-xl transition"
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAuthModalMode('signup');
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="text-xs font-bold px-4 py-2 rounded-full bg-brand-600 hover:bg-brand-500 text-white shadow-xs transition"
+                  >
+                    Join Selluy
+                  </button>
+                </div>
+              )}
 
               {/* Mobile menu button */}
               <button
@@ -320,6 +358,13 @@ export const Navbar: React.FC = () => {
       <LocationModal
         isOpen={isLocationModalOpen}
         onClose={() => setIsLocationModalOpen(false)}
+      />
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authModalMode}
       />
     </>
   );

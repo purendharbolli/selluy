@@ -3,10 +3,10 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { LocationProvider } from './context/LocationContext';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
-import { DemoRoleBanner } from './components/common/DemoRoleBanner';
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
+import { AdminProtectedRoute } from './components/auth/AdminProtectedRoute';
 
 // Pages
 import { Home } from './pages/Home';
@@ -20,6 +20,7 @@ import { WishlistPage } from './pages/WishlistPage';
 import { SellerOnboardingPage } from './pages/SellerOnboardingPage';
 import { SellerDashboardPage } from './pages/SellerDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { AdminLoginPage } from './pages/AdminLoginPage';
 import { PoliciesPage } from './pages/PoliciesPage';
 
 // Scroll to top on route change
@@ -39,7 +40,6 @@ export function App() {
           <CartProvider>
             <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-stone-900 selection:bg-brand-100 selection:text-brand-900">
               <ScrollToTop />
-              <DemoRoleBanner />
               <Navbar />
 
               <main className="flex-1 pb-16 md:pb-0">
@@ -54,7 +54,18 @@ export function App() {
                   <Route path="/wishlist" element={<WishlistPage />} />
                   <Route path="/seller/onboarding" element={<SellerOnboardingPage />} />
                   <Route path="/seller/dashboard" element={<SellerDashboardPage />} />
-                  <Route path="/admin" element={<AdminDashboardPage />} />
+                  
+                  {/* Secure Admin Routes */}
+                  <Route path="/admin/login" element={<AdminLoginPage />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      <AdminProtectedRoute>
+                        <AdminDashboardPage />
+                      </AdminProtectedRoute>
+                    }
+                  />
+
                   <Route path="/policies/:type" element={<PoliciesPage />} />
                   {/* Catch-all fallback */}
                   <Route path="*" element={<Home />} />

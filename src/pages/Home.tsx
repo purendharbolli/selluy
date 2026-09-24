@@ -18,6 +18,7 @@ import { marketplaceService } from '../services/marketplaceService';
 import { ProductCard } from '../components/product/ProductCard';
 import { SellerCard } from '../components/seller/SellerCard';
 import { LocationModal } from '../components/common/LocationModal';
+import { HomeIntroAuthBanner } from '../components/home/HomeIntroAuthBanner';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -124,6 +125,9 @@ export const Home: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* PAGE INTRO & SIGN UP / LOGIN BOX */}
+      <HomeIntroAuthBanner />
 
       {/* 5. POPULAR CATEGORIES */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

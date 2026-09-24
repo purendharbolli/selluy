@@ -89,7 +89,7 @@ export const Footer: React.FC = () => {
                 <Link to="/policies/refund" className="hover:text-white transition">Refund & Return Guidelines</Link>
               </li>
               <li>
-                <Link to="/admin" className="hover:text-white text-stone-500 transition">Admin Portal</Link>
+                <Link to="/admin/login" className="hover:text-white text-stone-500 transition">Admin Portal</Link>
               </li>
               <li className="pt-1">
                 <span className="inline-flex items-center gap-1 text-xs text-emerald-400">

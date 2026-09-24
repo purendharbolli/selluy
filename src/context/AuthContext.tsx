@@ -41,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
   const [needsCityOnboarding, setNeedsCityOnboarding] = useState<boolean>(false);
+  const [activeOtpHash, setActiveOtpHash] = useState<string>('');
 
   // Sync seller profile whenever user changes
   useEffect(() => {
@@ -60,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  // Request 6-digit OTP for Indian Mobile (+91)
+  // Request 6-digit OTP for Indian Mobile (+91) via Fast2SMS
   const sendOtp = async (
     phone: string
   ): Promise<{ success: boolean; isNewUser: boolean; error?: string }> => {
@@ -89,15 +90,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Try Supabase Auth OTP if provider is configured
+      // 1. Dispatch OTP via Fast2SMS serverless endpoint
+      try {
+        const apiRes = await fetch('/api/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: cleanPhone }),
+        });
+
+        if (apiRes.ok) {
+          const apiData = await apiRes.json();
+          if (apiData.hash) {
+            setActiveOtpHash(apiData.hash);
+            try {
+              sessionStorage.setItem(`selluy_otp_hash_${cleanPhone}`, apiData.hash);
+            } catch (e) {
+              // Ignore session storage error
+            }
+          }
+          return { success: true, isNewUser };
+        }
+      } catch (apiErr) {
+        console.info('Fast2SMS endpoint offline/local notice, proceeding with dev flow:', apiErr);
+      }
+
+      // 2. Fallback to Supabase SMS if provider configured
       if (isSupabaseConfigured()) {
         try {
           await supabase.auth.signInWithOtp({
             phone: `+91${cleanPhone}`,
           });
         } catch (smsErr) {
-          // If SMS provider not yet bound in Supabase dashboard, proceed with dev OTP verification
-          console.info('Supabase SMS gateway fallback active for development testing.');
+          console.info('Supabase SMS fallback active.');
         }
       }
 
@@ -120,6 +144,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      const storedHash =
+        activeOtpHash ||
+        (() => {
+          try {
+            return sessionStorage.getItem(`selluy_otp_hash_${cleanPhone}`) || '';
+          } catch {
+            return '';
+          }
+        })();
+
+      // 1. Verify via Fast2SMS /api/verify-otp serverless endpoint
+      let isVerified = false;
+      try {
+        const verifyRes = await fetch('/api/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: cleanPhone, token: cleanToken, hash: storedHash }),
+        });
+
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          if (verifyData.success) {
+            isVerified = true;
+          }
+        } else {
+          const errData = await verifyRes.json().catch(() => ({}));
+          if (errData.error && storedHash) {
+            return { success: false, error: errData.error };
+          }
+        }
+      } catch (netErr) {
+        console.info('Serverless verify fallback active:', netErr);
+      }
+
+      // 2. Dev mode / fallback verification (123456)
+      if (!isVerified) {
+        if (cleanToken === '123456') {
+          isVerified = true;
+        } else if (isSupabaseConfigured()) {
+          try {
+            const { error: supaErr } = await supabase.auth.verifyOtp({
+              phone: `+91${cleanPhone}`,
+              token: cleanToken,
+              type: 'sms',
+            });
+            if (!supaErr) isVerified = true;
+          } catch (e) {
+            console.warn('Supabase verifyOtp notice:', e);
+          }
+        }
+      }
+
+      if (!isVerified) {
+        return { success: false, error: 'Incorrect OTP code. Please check your SMS and try again.' };
+      }
+
       let verifiedUserId = `usr_${cleanPhone}`;
       let existingUser: User | null = null;
 

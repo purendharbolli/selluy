@@ -72,6 +72,8 @@ export default async function handler(req, res) {
       return false;
     };
 
+    const attemptLogs = {};
+
     // ATTEMPT 1: Quick SMS Route (route: 'q') via POST
     // Does not require pre-approved domain verification
     try {
@@ -90,7 +92,8 @@ export default async function handler(req, res) {
         }),
       });
 
-      const qData = await qRes.json().catch(() => null);
+      const qData = await qRes.json().catch((e) => ({ jsonError: e.message }));
+      attemptLogs.qPost = qData;
       if (checkSuccess(qData)) {
         dispatchSuccess = true;
         successDetails = { provider: 'fast2sms-quick', requestId: qData?.request_id || null };
@@ -98,6 +101,7 @@ export default async function handler(req, res) {
         lastGatewayError = Array.isArray(qData.message) ? qData.message.join(', ') : qData.message;
       }
     } catch (err) {
+      attemptLogs.qPostErr = err.message;
       lastGatewayError = err.message;
     }
 
@@ -111,7 +115,8 @@ export default async function handler(req, res) {
             authorization: apiKey,
           },
         });
-        const qGetData = await qGetRes.json().catch(() => null);
+        const qGetData = await qGetRes.json().catch((e) => ({ jsonError: e.message }));
+        attemptLogs.qGet = qGetData;
         if (checkSuccess(qGetData)) {
           dispatchSuccess = true;
           successDetails = { provider: 'fast2sms-quick-get', requestId: qGetData?.request_id || null };
@@ -119,6 +124,7 @@ export default async function handler(req, res) {
           lastGatewayError = Array.isArray(qGetData.message) ? qGetData.message.join(', ') : qGetData.message;
         }
       } catch (err) {
+        attemptLogs.qGetErr = err.message;
         lastGatewayError = err.message;
       }
     }
@@ -139,7 +145,8 @@ export default async function handler(req, res) {
           }),
         });
 
-        const otpData = await otpRes.json().catch(() => null);
+        const otpData = await otpRes.json().catch((e) => ({ jsonError: e.message }));
+        attemptLogs.otpPost = otpData;
         if (checkSuccess(otpData)) {
           dispatchSuccess = true;
           successDetails = { provider: 'fast2sms-otp', requestId: otpData?.request_id || null };
@@ -147,6 +154,7 @@ export default async function handler(req, res) {
           lastGatewayError = Array.isArray(otpData.message) ? otpData.message.join(', ') : otpData.message;
         }
       } catch (err) {
+        attemptLogs.otpPostErr = err.message;
         lastGatewayError = err.message;
       }
     }
@@ -161,7 +169,8 @@ export default async function handler(req, res) {
             authorization: apiKey,
           },
         });
-        const otpGetData = await otpGetRes.json().catch(() => null);
+        const otpGetData = await otpGetRes.json().catch((e) => ({ jsonError: e.message }));
+        attemptLogs.otpGet = otpGetData;
         if (checkSuccess(otpGetData)) {
           dispatchSuccess = true;
           successDetails = { provider: 'fast2sms-otp-get', requestId: otpGetData?.request_id || null };
@@ -169,6 +178,7 @@ export default async function handler(req, res) {
           lastGatewayError = Array.isArray(otpGetData.message) ? otpGetData.message.join(', ') : otpGetData.message;
         }
       } catch (err) {
+        attemptLogs.otpGetErr = err.message;
         lastGatewayError = err.message;
       }
     }
@@ -195,12 +205,13 @@ export default async function handler(req, res) {
       friendlyError = 'Fast2SMS notice: Invalid API authorization key. Please verify FAST2SMS_API_KEY in Vercel settings.';
     }
 
-    console.error('Fast2SMS dispatch failed:', { rawMsg, cleanPhone });
+    console.error('Fast2SMS dispatch failed:', { rawMsg, cleanPhone, attemptLogs });
 
     return res.status(400).json({
       success: false,
       error: friendlyError,
       rawGatewayMessage: rawMsg,
+      attemptLogs,
     });
   } catch (err) {
     console.error('send-otp endpoint error:', err);

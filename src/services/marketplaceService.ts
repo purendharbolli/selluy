@@ -1,4 +1,4 @@
-import { Product, SellerProfile, Category, Order, Report, SellerApplication } from '../types';
+import { Product, SellerProfile, Category, Order, Report, SellerApplication, Review, City } from '../types';
 import { INITIAL_CATEGORIES } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
@@ -8,6 +8,7 @@ const STORAGE_SELLERS = 'selluy_sellers_v2';
 const STORAGE_CATEGORIES = 'selluy_categories_v2';
 const STORAGE_APPLICATIONS = 'selluy_applications_v2';
 const STORAGE_ORDERS = 'selluy_orders_v2';
+const STORAGE_REVIEWS = 'selluy_reviews_v2';
 const STORAGE_REPORTS = 'selluy_reports_v2';
 
 export interface ProductFilters {
@@ -26,6 +27,7 @@ class MarketplaceService {
   private categories: Category[] = INITIAL_CATEGORIES;
   private applications: SellerApplication[] = [];
   private orders: Order[] = [];
+  private reviews: Review[] = [];
   private reports: Report[] = [];
   private isLoaded = false;
   private listeners: (() => void)[] = [];
@@ -64,6 +66,9 @@ class MarketplaceService {
 
       const savedOrders = localStorage.getItem(STORAGE_ORDERS);
       if (savedOrders) this.orders = JSON.parse(savedOrders);
+
+      const savedReviews = localStorage.getItem(STORAGE_REVIEWS);
+      if (savedReviews) this.reviews = JSON.parse(savedReviews);
 
       const savedReports = localStorage.getItem(STORAGE_REPORTS);
       if (savedReports) this.reports = JSON.parse(savedReports);
@@ -470,6 +475,76 @@ class MarketplaceService {
 
     this.notify();
     return newOrder;
+  }
+
+  public async updateOrderStatus(orderId: string, status: Order['status']): Promise<void> {
+    const order = this.orders.find((o) => o.id === orderId);
+    if (order) {
+      order.status = status;
+      localStorage.setItem(STORAGE_ORDERS, JSON.stringify(this.orders));
+
+      if (isSupabaseConfigured()) {
+        try {
+          await supabase.from('orders').update({ status }).eq('id', orderId);
+        } catch (err) {
+          console.warn('Supabase order status update:', err);
+        }
+      }
+      this.notify();
+    }
+  }
+
+  // --- REVIEWS (VERIFIED PURCHASE ONLY) ---
+  public getReviewsByProduct(productId: string): Review[] {
+    return this.reviews.filter((r) => r.product_id === productId);
+  }
+
+  public getReviewsBySeller(sellerId: string): Review[] {
+    return this.reviews.filter((r) => r.seller_id === sellerId);
+  }
+
+  public hasUserPurchasedProduct(userId: string, productId: string): boolean {
+    if (!userId || !productId) return false;
+    return this.orders.some(
+      (order) =>
+        order.buyer_id === userId &&
+        order.items.some((item) => item.product_id === productId)
+    );
+  }
+
+  public async addReview(
+    reviewData: Omit<Review, 'id' | 'created_at'>
+  ): Promise<Review> {
+    const newReview: Review = {
+      ...reviewData,
+      id: 'rev-' + Date.now(),
+      created_at: new Date().toISOString(),
+    };
+
+    this.reviews.unshift(newReview);
+    localStorage.setItem(STORAGE_REVIEWS, JSON.stringify(this.reviews));
+
+    // Update seller rating
+    const sellerReviews = this.reviews.filter((r) => r.seller_id === reviewData.seller_id);
+    const avgRating =
+      sellerReviews.reduce((sum, r) => sum + r.rating, 0) / sellerReviews.length;
+    const seller = this.sellers.find((s) => s.id === reviewData.seller_id);
+    if (seller) {
+      seller.rating = Math.round(avgRating * 10) / 10;
+      seller.total_reviews = sellerReviews.length;
+      localStorage.setItem(STORAGE_SELLERS, JSON.stringify(this.sellers));
+    }
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('reviews').insert([newReview]);
+      } catch (err) {
+        console.warn('Supabase review insert:', err);
+      }
+    }
+
+    this.notify();
+    return newReview;
   }
 }
 

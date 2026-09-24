@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin,
   Star,
@@ -10,40 +11,47 @@ import {
   Share2,
   CheckCircle2,
   Store,
+  MessageSquare,
+  Package,
 } from 'lucide-react';
 import { marketplaceService } from '../services/marketplaceService';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { ProductCard } from '../components/product/ProductCard';
-import { Product } from '../types';
+import { Tabs } from '../components/ui/Tabs';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
+import { Product, Review } from '../types';
 
 export const SellerProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [seller, setSeller] = useState(marketplaceService.getSellerById(id || ''));
   const [products, setProducts] = useState<Product[]>([]);
-  const [activeTab, setActiveTab] = useState<'creations' | 'about'>('creations');
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [activeTab, setActiveTab] = useState<'creations' | 'about' | 'reviews'>('creations');
   const [shareToast, setShareToast] = useState(false);
 
   useEffect(() => {
-    const s = marketplaceService.getSellerById(id || '');
+    if (!id) return;
+    const s = marketplaceService.getSellerById(id);
     setSeller(s);
     if (s) {
       setProducts(marketplaceService.getProductsBySeller(s.id).filter((p) => p.status === 'approved' || !p.status));
+      setReviews(marketplaceService.getReviewsBySeller(s.id));
     }
   }, [id]);
 
   if (!seller) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-24 text-center">
-        <h2 className="text-2xl font-black text-stone-900 mb-2 font-display">Creator Not Found</h2>
+        <h2 className="text-2xl font-black text-stone-900 mb-2 font-display">Creator Studio Not Found</h2>
         <p className="text-stone-500 text-sm mb-6">
           The creator storefront you are looking for may have moved or changed their handle.
         </p>
-        <Link
-          to="/explore"
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-blue-600 text-white font-bold text-xs"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Browse Other Studios
+        <Link to="/explore">
+          <Button size="md">
+            <ArrowLeft className="w-4 h-4 mr-1.5" />
+            Browse Other Studios
+          </Button>
         </Link>
       </div>
     );
@@ -59,10 +67,30 @@ export const SellerProfilePage: React.FC = () => {
     }
   };
 
+  const tabItems = [
+    {
+      id: 'creations' as const,
+      label: 'Creations & Catalog',
+      icon: <Package className="w-3.5 h-3.5" />,
+      badge: products.length,
+    },
+    {
+      id: 'about' as const,
+      label: 'About the Studio',
+      icon: <Store className="w-3.5 h-3.5" />,
+    },
+    {
+      id: 'reviews' as const,
+      label: 'Verified Reviews',
+      icon: <MessageSquare className="w-3.5 h-3.5" />,
+      badge: reviews.length > 0 ? reviews.length : undefined,
+    },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Back button */}
-      <Link to="/explore" className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-blue-600 font-semibold">
+      <Link to="/explore" className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-blue-600 font-semibold transition">
         <ArrowLeft className="w-4 h-4" />
         Back to marketplace
       </Link>
@@ -119,7 +147,7 @@ export const SellerProfilePage: React.FC = () => {
 
           <button
             onClick={handleShare}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-sand-100 hover:bg-sand-200 text-stone-800 text-xs font-bold transition shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-sand-100 hover:bg-sand-200 text-stone-800 text-xs font-bold transition shadow-xs cursor-pointer"
           >
             <Share2 className="w-3.5 h-3.5" />
             {shareToast ? 'Link Copied!' : 'Share Studio'}
@@ -132,33 +160,24 @@ export const SellerProfilePage: React.FC = () => {
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-sand-200 flex gap-4">
-        <button
-          onClick={() => setActiveTab('creations')}
-          className={`pb-3 text-sm font-bold border-b-2 transition ${
-            activeTab === 'creations'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-stone-500 hover:text-stone-800'
-          }`}
-        >
-          Creations &amp; Catalog ({products.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('about')}
-          className={`pb-3 text-sm font-bold border-b-2 transition ${
-            activeTab === 'about'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-stone-500 hover:text-stone-800'
-          }`}
-        >
-          About the Studio
-        </button>
+      {/* Kokonut UI Animated Sliding Tabs */}
+      <div>
+        <Tabs
+          tabs={tabItems}
+          activeTab={activeTab}
+          onChange={(tab) => setActiveTab(tab)}
+          layoutId="sellerProfileActiveTab"
+        />
       </div>
 
       {/* TAB 1: CREATIONS */}
       {activeTab === 'creations' && (
-        <div>
+        <motion.div
+          key="tab-creations"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
           {products.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
               {products.map((p) => (
@@ -166,28 +185,99 @@ export const SellerProfilePage: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className="bg-white rounded-3xl p-12 text-center border border-sand-200 text-xs text-stone-500">
+            <div className="bg-white rounded-3xl p-12 text-center border border-sand-200/90 shadow-soft-sm text-xs text-stone-500 max-w-md mx-auto">
               <Store className="w-8 h-8 text-stone-400 mx-auto mb-2" />
               <p className="font-bold text-stone-800 text-sm">No live drops currently</p>
               <p className="mt-1">This creator has not published active inventory yet.</p>
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* TAB 2: ABOUT */}
       {activeTab === 'about' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-sand-200 max-w-2xl space-y-4">
-          <h3 className="font-bold text-base text-stone-900">About {seller.store_name}</h3>
+        <motion.div
+          key="tab-about"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white rounded-3xl p-6 sm:p-8 border border-sand-200/90 shadow-soft-sm max-w-2xl space-y-4"
+        >
+          <h3 className="font-bold text-base text-stone-900 font-display">About {seller.store_name}</h3>
           <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
             {seller.description}
           </p>
-          <div className="pt-2 text-xs text-stone-500 space-y-1">
+          <div className="pt-2 text-xs text-stone-500 space-y-1.5 border-t border-sand-100">
             <p><strong>Studio City:</strong> {seller.city}, {seller.state || 'India'}</p>
             <p><strong>Focus:</strong> {seller.category_focus}</p>
-            <p><strong>Status:</strong> {isVerified ? 'Verified by Selluy' : 'Pending verification'}</p>
+            <p>
+              <strong>Status:</strong>{' '}
+              <Badge variant={isVerified ? 'success' : 'warning'} size="sm">
+                {isVerified ? 'Verified by Selluy' : 'Pending Verification'}
+              </Badge>
+            </p>
           </div>
-        </div>
+        </motion.div>
+      )}
+
+      {/* TAB 3: REVIEWS (Strictly Real Reviews) */}
+      {activeTab === 'reviews' && (
+        <motion.div
+          key="tab-reviews"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-4 max-w-2xl"
+        >
+          {reviews.length > 0 ? (
+            reviews.map((rev) => (
+              <div
+                key={rev.id}
+                className="bg-white rounded-3xl p-5 border border-sand-200/90 shadow-soft-sm space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold text-stone-900">{rev.user_name}</span>
+                    {rev.verified_purchase && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        Verified Purchase
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-stone-400">
+                    {new Date(rev.created_at).toLocaleDateString('en-IN', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-0.5">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-3.5 h-3.5 ${
+                        i < rev.rating ? 'fill-amber-400 text-amber-400' : 'text-stone-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                <p className="text-xs text-stone-700 leading-relaxed">{rev.comment}</p>
+              </div>
+            ))
+          ) : (
+            <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-sand-200/90 shadow-soft-sm max-w-md mx-auto">
+              <MessageSquare className="w-8 h-8 text-stone-400 mx-auto mb-2" />
+              <h4 className="text-base font-bold text-stone-900 font-display">No reviews yet</h4>
+              <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                When customers purchase from this creator, their verified reviews will appear here.
+              </p>
+            </div>
+          )}
+        </motion.div>
       )}
     </div>
   );

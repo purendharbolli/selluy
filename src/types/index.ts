@@ -149,6 +149,8 @@ export interface Review {
   user_avatar?: string;
   product_id?: string;
   seller_id: string;
+  order_id?: string;
+  verified_purchase?: boolean;
   rating: number;
   comment: string;
   created_at: string;

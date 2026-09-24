@@ -16,21 +16,26 @@ import {
   Clock,
   TrendingUp,
   MapPin,
+  PauseCircle,
+  PlayCircle,
+  Truck,
 } from 'lucide-react';
 import { marketplaceService } from '../services/marketplaceService';
-import { SellerProfile, Product, Category, SellerApplication } from '../types';
+import { SellerProfile, Product, Category, SellerApplication, Order } from '../types';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
+import { POPULAR_INDIAN_CITIES } from '../components/common/CityOnboardingModal';
 import { Tabs } from '../components/ui/Tabs';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 
 export const AdminDashboardPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'sellers' | 'products'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'products' | 'sellers' | 'orders' | 'cities'>('overview');
 
   const [applications, setApplications] = useState<SellerApplication[]>(marketplaceService.getApplications());
   const [sellers, setSellers] = useState<SellerProfile[]>(marketplaceService.getSellers());
   const [products, setProducts] = useState<Product[]>(marketplaceService.getAllRawProducts());
-  const [orders, setOrders] = useState(marketplaceService.getOrders());
+  const [orders, setOrders] = useState<Order[]>(marketplaceService.getOrders());
+  const [categories, setCategories] = useState<Category[]>(marketplaceService.getCategories());
 
   const [toastMsg, setToastMsg] = useState('');
 
@@ -39,6 +44,7 @@ export const AdminDashboardPage: React.FC = () => {
     setSellers([...marketplaceService.getSellers()]);
     setProducts([...marketplaceService.getAllRawProducts()]);
     setOrders([...marketplaceService.getOrders()]);
+    setCategories([...marketplaceService.getCategories()]);
   };
 
   useEffect(() => {
@@ -52,13 +58,14 @@ export const AdminDashboardPage: React.FC = () => {
     setTimeout(() => setToastMsg(''), 3000);
   };
 
-  // Metrics (Strictly Real Data)
+  // Metrics (Strictly Real Database Data)
   const pendingApplications = applications.filter((a) => a.status === 'pending');
   const approvedApplications = applications.filter((a) => a.status === 'approved');
   const verifiedSellersCount = sellers.filter((s) => s.verification_status === 'approved' || (s.verification_status as string) === 'verified').length;
   const pendingProducts = products.filter((p) => p.status === 'pending_approval');
   const approvedProducts = products.filter((p) => p.status === 'approved' || !p.status);
   const totalOrders = orders.length;
+  const totalGMV = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
 
   // Actions
   const handleApproveSeller = async (appId: string) => {
@@ -72,7 +79,7 @@ export const AdminDashboardPage: React.FC = () => {
   };
 
   const handleRejectSeller = async (appId: string) => {
-    const reason = prompt('Please enter a rejection reason for this seller:');
+    const reason = prompt('Please enter an internal rejection reason:');
     if (reason !== null) {
       await marketplaceService.adminRejectSeller(appId, reason || 'Application requirements not met.');
       refreshAdminData();
@@ -95,12 +102,29 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  const handlePauseProduct = async (prodId: string, currentStatus: string) => {
+    if (currentStatus === 'paused') {
+      await marketplaceService.updateProduct(prodId, { status: 'approved', active: true });
+      showToast('Product unpaused.');
+    } else {
+      await marketplaceService.updateProduct(prodId, { status: 'paused', active: false });
+      showToast('Product paused from customer view.');
+    }
+    refreshAdminData();
+  };
+
   const handleDeleteProduct = async (prodId: string) => {
     if (window.confirm('Are you sure you want to permanently delete this product?')) {
       await marketplaceService.adminDeleteProduct(prodId);
       refreshAdminData();
       showToast('Product removed.');
     }
+  };
+
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+    await marketplaceService.updateOrderStatus(orderId, newStatus);
+    refreshAdminData();
+    showToast(`Order status updated to ${newStatus}`);
   };
 
   const tabItems = [
@@ -123,6 +147,18 @@ export const AdminDashboardPage: React.FC = () => {
       icon: <Users className="w-3.5 h-3.5" />,
       badge: verifiedSellersCount,
     },
+    {
+      id: 'orders' as const,
+      label: 'Orders & Fulfillment',
+      icon: <ShoppingBag className="w-3.5 h-3.5" />,
+      badge: totalOrders > 0 ? totalOrders : undefined,
+    },
+    {
+      id: 'cities' as const,
+      label: 'Supported Cities',
+      icon: <MapPin className="w-3.5 h-3.5" />,
+      badge: POPULAR_INDIAN_CITIES.length,
+    },
   ];
 
   return (
@@ -138,7 +174,7 @@ export const AdminDashboardPage: React.FC = () => {
               Selluy Governance &amp; Moderation
             </h1>
             <p className="text-xs text-stone-500">
-              Strict two-sided moderation: verified sellers &amp; approved products only
+              Strict two-sided moderation: verified sellers, approved products, and real local orders
             </p>
           </div>
         </div>
@@ -210,17 +246,17 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
 
             <div className="bg-white p-4 rounded-3xl border border-sand-200/90 shadow-soft-sm">
-              <span className="text-[10px] uppercase font-bold text-stone-400 block">Categories</span>
-              <span className="text-2xl font-black text-stone-900 mt-1 block">{marketplaceService.getCategories().length}</span>
+              <span className="text-[10px] uppercase font-bold text-stone-400 block">Total GMV</span>
+              <span className="text-2xl font-black text-blue-600 mt-1 block">₹{totalGMV.toLocaleString('en-IN')}</span>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl p-6 border border-sand-200 shadow-soft-sm">
-            <h3 className="text-sm font-bold text-stone-900 mb-3">Moderation Architecture Guidelines</h3>
+            <h3 className="text-sm font-bold text-stone-900 mb-3">Moderation Architecture Guidelines (Selluy 2026)</h3>
             <ul className="text-xs text-stone-600 space-y-2 list-disc pl-5">
-              <li><strong>Zero Fake Data:</strong> The marketplace displays only real approved products from vetted indie sellers.</li>
-              <li><strong>Seller Verification:</strong> Review maker craftsmanship, city, and photo samples before verifying.</li>
-              <li><strong>Product Moderation:</strong> Inspect photos, titles, and pricing to maintain platform quality.</li>
+              <li><strong>Zero Fake Data:</strong> The marketplace displays only real approved products from vetted indie sellers. Never fabricate sales, reviews, or mock users.</li>
+              <li><strong>Seller Verification:</strong> Review maker craftsmanship, studio city, and photo samples before verifying. Private verification docs are strictly restricted to admin.</li>
+              <li><strong>Product Moderation:</strong> Inspect photos, titles, material description, and pricing to maintain platform quality before making pieces live.</li>
             </ul>
           </div>
         </motion.div>
@@ -355,7 +391,7 @@ export const AdminDashboardPage: React.FC = () => {
                       <img
                         src={p.images[0]}
                         alt={p.name}
-                        className="w-14 h-14 rounded-2xl object-cover bg-sand-100"
+                        className="w-14 h-14 rounded-2xl object-cover bg-sand-100 shrink-0"
                       />
                       <div>
                         <div className="flex items-center gap-2">
@@ -366,6 +402,8 @@ export const AdminDashboardPage: React.FC = () => {
                                 ? 'success'
                                 : status === 'rejected'
                                 ? 'destructive'
+                                : status === 'paused'
+                                ? 'warning'
                                 : 'brand'
                             }
                             size="sm"
@@ -394,6 +432,15 @@ export const AdminDashboardPage: React.FC = () => {
                           Approve
                         </Button>
                       )}
+
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handlePauseProduct(p.id, status)}
+                        className="bg-sand-100 text-stone-800"
+                      >
+                        {status === 'paused' ? 'Unpause' : 'Pause'}
+                      </Button>
 
                       {status !== 'rejected' && (
                         <Button
@@ -439,7 +486,7 @@ export const AdminDashboardPage: React.FC = () => {
             {sellers.map((s) => (
               <div key={s.id} className="p-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <img src={s.logo} alt={s.store_name} className="w-10 h-10 rounded-xl object-cover" />
+                  <img src={s.logo} alt={s.store_name} className="w-10 h-10 rounded-xl object-cover border border-sand-200" />
                   <div>
                     <div className="flex items-center gap-1.5">
                       <h4 className="text-sm font-bold text-stone-900">{s.store_name}</h4>
@@ -452,6 +499,114 @@ export const AdminDashboardPage: React.FC = () => {
                 <Badge variant="success" size="sm">
                   Verified
                 </Badge>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* TAB 5: ORDERS & FULFILLMENT */}
+      {activeTab === 'orders' && (
+        <motion.div
+          key="tab-orders"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white rounded-3xl border border-sand-200 shadow-soft-sm overflow-hidden"
+        >
+          <div className="p-4 border-b border-sand-100 flex items-center justify-between">
+            <h3 className="font-bold text-sm text-stone-900">Direct Customer Orders</h3>
+            <span className="text-xs text-stone-500">{orders.length} total orders recorded</span>
+          </div>
+
+          {orders.length === 0 ? (
+            <div className="p-12 text-center text-xs text-stone-500">
+              <ShoppingBag className="w-8 h-8 text-stone-400 mx-auto mb-2" />
+              <p className="font-bold text-stone-800">No customer orders placed yet.</p>
+              <p className="mt-1">When buyers checkout on the marketplace, orders appear here with full addresses.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-sand-100">
+              {orders.map((ord) => (
+                <div key={ord.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-stone-950 text-sm">Order #{ord.id}</span>
+                      <Badge variant="brand" size="sm">
+                        {ord.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-stone-600">
+                      Customer: <strong>{ord.shipping_address.name}</strong> ({ord.shipping_address.phone}) • Deliver to: {ord.shipping_address.address_line}, {ord.shipping_address.city}
+                    </p>
+                    <div className="text-xs text-stone-500">
+                      {ord.items.map((it, idx) => (
+                        <span key={idx} className="mr-3">
+                          • {it.quantity}x {it.product?.name || `Item #${it.product_id}`} (₹{it.price})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-sm font-black text-stone-900">₹{ord.total_amount.toLocaleString('en-IN')}</span>
+                    <select
+                      value={ord.status}
+                      onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value as Order['status'])}
+                      className="px-2.5 py-1.5 rounded-xl border border-sand-300 text-xs font-semibold bg-sand-50 focus:outline-none"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="confirmed">Confirmed</option>
+                      <option value="processing">Processing</option>
+                      <option value="shipped">Shipped</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* TAB 6: SUPPORTED CITIES */}
+      {activeTab === 'cities' && (
+        <motion.div
+          key="tab-cities"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white rounded-3xl border border-sand-200 shadow-soft-sm overflow-hidden p-6 space-y-4"
+        >
+          <div className="flex items-center justify-between pb-3 border-b border-sand-100">
+            <div>
+              <h3 className="font-bold text-sm text-stone-900">Supported Indian Discovery Hubs</h3>
+              <p className="text-xs text-stone-500">Cities enabled for hyper-local studio discovery</p>
+            </div>
+            <Badge variant="brand" size="sm">
+              {POPULAR_INDIAN_CITIES.length} Cities Active
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {POPULAR_INDIAN_CITIES.map((c) => (
+              <div
+                key={c.name}
+                className="p-3.5 rounded-2xl bg-sand-50/80 border border-sand-200 flex items-center justify-between text-xs"
+              >
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                  <div>
+                    <span className="font-bold text-stone-900 block">{c.name}</span>
+                    <span className="text-[10px] text-stone-400">{c.state}</span>
+                  </div>
+                </div>
+                {c.popular && (
+                  <span className="text-[9px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                    Priority
+                  </span>
+                )}
               </div>
             ))}
           </div>

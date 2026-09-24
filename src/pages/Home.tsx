@@ -213,7 +213,7 @@ export const Home: React.FC = () => {
             </div>
 
             <h3 className="text-xl sm:text-2xl font-black text-stone-950 font-display">
-              No products here yet
+              Nothing here yet
             </h3>
             <p className="text-xs sm:text-sm text-stone-600 mt-2 max-w-md mx-auto leading-relaxed">
               We&apos;re bringing verified local sellers to {selectedCity}. Become an early creator or explore approved products across other cities.

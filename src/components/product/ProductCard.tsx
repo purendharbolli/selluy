@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Heart, Plus, MapPin } from 'lucide-react';
 import { Product } from '../../types';
 import { VerifiedBadge } from '../common/Badge';
@@ -28,9 +29,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, highlightCity
   };
 
   return (
-    <div className="group relative bg-white rounded-3xl border border-sand-200/80 overflow-hidden shadow-soft-sm hover:shadow-soft-lg hover:-translate-y-1 transition-all duration-300 flex flex-col">
+    <motion.div
+      whileHover={{ y: -4 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+      className="group relative bg-white rounded-3xl border border-sand-200/90 overflow-hidden shadow-soft-sm hover:shadow-soft-lg transition-all duration-300 flex flex-col"
+    >
       {/* Product Image & Badges */}
-      <Link to={`/product/${product.id}`} className="relative aspect-[4/4.5] w-full overflow-hidden bg-sand-100">
+      <Link to={`/product/${product.id}`} className="relative aspect-[4/4.5] w-full overflow-hidden bg-sand-100 block">
         <img
           src={product.images[0]}
           alt={product.name}
@@ -38,10 +43,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, highlightCity
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
         />
 
-        {/* Wishlist Button */}
-        <button
+        {/* Wishlist Button with Motion Spring */}
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.75 }}
+          whileHover={{ scale: 1.1 }}
           onClick={handleToggleWishlist}
-          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-stone-700 hover:text-brand-600 transition"
+          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/95 backdrop-blur-md shadow-xs flex items-center justify-center text-stone-700 hover:text-rose-500 transition cursor-pointer z-10"
           aria-label="Add to wishlist"
         >
           <Heart
@@ -49,18 +57,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, highlightCity
               isFavorited ? 'fill-rose-500 text-rose-500' : 'text-stone-700'
             }`}
           />
-        </button>
+        </motion.button>
 
         {/* Location & Status Pills */}
-        <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5 items-center">
+        <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5 items-center z-10">
           <span
             className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-md shadow-xs ${
               isLocal
-                ? 'bg-amber-400/95 text-stone-950 font-bold border border-amber-300'
+                ? 'bg-blue-600/90 text-white font-bold border border-blue-400'
                 : 'bg-white/90 text-stone-800'
             }`}
           >
-            <MapPin className="w-3 h-3 text-stone-600" />
+            <MapPin className={`w-3 h-3 ${isLocal ? 'text-white' : 'text-stone-600'}`} />
             {product.city}
             {isLocal && <span className="ml-0.5 text-[9px] uppercase tracking-wide">Nearby</span>}
           </span>
@@ -75,7 +83,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, highlightCity
             <div className="flex items-center justify-between mb-1.5">
               <Link
                 to={`/seller/${product.seller.id}`}
-                className="text-xs font-semibold text-stone-600 hover:text-brand-600 truncate max-w-[170px]"
+                className="text-xs font-semibold text-stone-600 hover:text-blue-600 truncate max-w-[170px]"
               >
                 {product.seller.store_name}
               </Link>
@@ -87,7 +95,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, highlightCity
 
           {/* Product Title */}
           <Link to={`/product/${product.id}`} className="block">
-            <h3 className="text-sm font-bold text-gray-900 group-hover:text-brand-600 transition line-clamp-2 leading-snug">
+            <h3 className="text-sm font-bold text-stone-900 group-hover:text-blue-600 transition line-clamp-2 leading-snug">
               {product.name}
             </h3>
           </Link>
@@ -106,16 +114,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, highlightCity
             )}
           </div>
 
-          <button
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.85 }}
+            whileHover={{ scale: 1.08 }}
             onClick={handleQuickAdd}
-            className="w-8 h-8 rounded-full bg-sand-100 hover:bg-brand-500 hover:text-white text-stone-800 flex items-center justify-center transition-colors shadow-xs"
+            className="w-8 h-8 rounded-full bg-sand-100 hover:bg-blue-600 hover:text-white text-stone-800 flex items-center justify-center transition-colors shadow-xs cursor-pointer"
             title="Quick add to bag"
             aria-label="Add to cart"
           >
             <Plus className="w-4 h-4" />
-          </button>
+          </motion.button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
+
+export default ProductCard;

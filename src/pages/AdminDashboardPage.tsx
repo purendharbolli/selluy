@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShieldCheck,
   Users,
@@ -19,6 +20,9 @@ import {
 import { marketplaceService } from '../services/marketplaceService';
 import { SellerProfile, Product, Category, SellerApplication } from '../types';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
+import { Tabs } from '../components/ui/Tabs';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 
 export const AdminDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'sellers' | 'products'>('overview');
@@ -99,6 +103,28 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  const tabItems = [
+    { id: 'overview' as const, label: 'Overview', icon: <TrendingUp className="w-3.5 h-3.5" /> },
+    {
+      id: 'applications' as const,
+      label: 'Seller Applications',
+      icon: <Store className="w-3.5 h-3.5" />,
+      badge: pendingApplications.length > 0 ? pendingApplications.length : undefined,
+    },
+    {
+      id: 'products' as const,
+      label: 'Product Moderation',
+      icon: <Package className="w-3.5 h-3.5" />,
+      badge: pendingProducts.length > 0 ? pendingProducts.length : undefined,
+    },
+    {
+      id: 'sellers' as const,
+      label: 'Verified Sellers',
+      icon: <Users className="w-3.5 h-3.5" />,
+      badge: verifiedSellersCount,
+    },
+  ];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Admin Header */}
@@ -118,109 +144,78 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <Badge variant="success" dot size="md">
             Live Production Admin
-          </span>
+          </Badge>
         </div>
       </div>
 
-      {toastMsg && (
-        <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-xs font-bold text-blue-800 flex items-center gap-2 animate-fadeIn">
-          <CheckCircle className="w-4 h-4 text-blue-600 shrink-0" />
-          <span>{toastMsg}</span>
-        </div>
-      )}
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-xs font-bold text-blue-800 flex items-center gap-2 shadow-xs"
+          >
+            <CheckCircle className="w-4 h-4 text-blue-600 shrink-0" />
+            <span>{toastMsg}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-sand-200 pb-2 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-            activeTab === 'overview' ? 'bg-stone-950 text-white' : 'text-stone-600 hover:bg-sand-100'
-          }`}
-        >
-          <TrendingUp className="w-3.5 h-3.5" />
-          Overview
-        </button>
-
-        <button
-          onClick={() => setActiveTab('applications')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-            activeTab === 'applications' ? 'bg-stone-950 text-white' : 'text-stone-600 hover:bg-sand-100'
-          }`}
-        >
-          <Store className="w-3.5 h-3.5" />
-          Seller Applications ({applications.length})
-          {pendingApplications.length > 0 && (
-            <span className="w-5 h-5 rounded-full bg-amber-500 text-stone-950 text-[10px] font-bold flex items-center justify-center">
-              {pendingApplications.length}
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('products')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-            activeTab === 'products' ? 'bg-stone-950 text-white' : 'text-stone-600 hover:bg-sand-100'
-          }`}
-        >
-          <Package className="w-3.5 h-3.5" />
-          Product Moderation ({products.length})
-          {pendingProducts.length > 0 && (
-            <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
-              {pendingProducts.length}
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('sellers')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-            activeTab === 'sellers' ? 'bg-stone-950 text-white' : 'text-stone-600 hover:bg-sand-100'
-          }`}
-        >
-          <Users className="w-3.5 h-3.5" />
-          Verified Sellers ({verifiedSellersCount})
-        </button>
+      {/* Kokonut UI Animated Sliding Tabs */}
+      <div>
+        <Tabs
+          tabs={tabItems}
+          activeTab={activeTab}
+          onChange={(tab) => setActiveTab(tab)}
+          layoutId="adminDashboardActiveTab"
+        />
       </div>
 
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
-        <div className="space-y-6">
+        <motion.div
+          key="tab-overview"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-6"
+        >
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="bg-white p-4 rounded-3xl border border-sand-200">
+            <div className="bg-white p-4 rounded-3xl border border-sand-200/90 shadow-soft-sm">
               <span className="text-[10px] uppercase font-bold text-stone-400 block">Pending Applications</span>
               <span className="text-2xl font-black text-amber-600 mt-1 block">{pendingApplications.length}</span>
             </div>
 
-            <div className="bg-white p-4 rounded-3xl border border-sand-200">
+            <div className="bg-white p-4 rounded-3xl border border-sand-200/90 shadow-soft-sm">
               <span className="text-[10px] uppercase font-bold text-stone-400 block">Verified Sellers</span>
               <span className="text-2xl font-black text-stone-900 mt-1 block">{verifiedSellersCount}</span>
             </div>
 
-            <div className="bg-white p-4 rounded-3xl border border-sand-200">
+            <div className="bg-white p-4 rounded-3xl border border-sand-200/90 shadow-soft-sm">
               <span className="text-[10px] uppercase font-bold text-stone-400 block">Pending Products</span>
               <span className="text-2xl font-black text-blue-600 mt-1 block">{pendingProducts.length}</span>
             </div>
 
-            <div className="bg-white p-4 rounded-3xl border border-sand-200">
+            <div className="bg-white p-4 rounded-3xl border border-sand-200/90 shadow-soft-sm">
               <span className="text-[10px] uppercase font-bold text-stone-400 block">Approved Products</span>
               <span className="text-2xl font-black text-emerald-600 mt-1 block">{approvedProducts.length}</span>
             </div>
 
-            <div className="bg-white p-4 rounded-3xl border border-sand-200">
+            <div className="bg-white p-4 rounded-3xl border border-sand-200/90 shadow-soft-sm">
               <span className="text-[10px] uppercase font-bold text-stone-400 block">Total Orders</span>
               <span className="text-2xl font-black text-stone-900 mt-1 block">{totalOrders}</span>
             </div>
 
-            <div className="bg-white p-4 rounded-3xl border border-sand-200">
+            <div className="bg-white p-4 rounded-3xl border border-sand-200/90 shadow-soft-sm">
               <span className="text-[10px] uppercase font-bold text-stone-400 block">Categories</span>
               <span className="text-2xl font-black text-stone-900 mt-1 block">{marketplaceService.getCategories().length}</span>
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 border border-sand-200">
+          <div className="bg-white rounded-3xl p-6 border border-sand-200 shadow-soft-sm">
             <h3 className="text-sm font-bold text-stone-900 mb-3">Moderation Architecture Guidelines</h3>
             <ul className="text-xs text-stone-600 space-y-2 list-disc pl-5">
               <li><strong>Zero Fake Data:</strong> The marketplace displays only real approved products from vetted indie sellers.</li>
@@ -228,12 +223,18 @@ export const AdminDashboardPage: React.FC = () => {
               <li><strong>Product Moderation:</strong> Inspect photos, titles, and pricing to maintain platform quality.</li>
             </ul>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* TAB 2: SELLER APPLICATIONS */}
       {activeTab === 'applications' && (
-        <div className="bg-white rounded-3xl border border-sand-200 overflow-hidden">
+        <motion.div
+          key="tab-applications"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white rounded-3xl border border-sand-200 shadow-soft-sm overflow-hidden"
+        >
           <div className="p-4 border-b border-sand-100 flex items-center justify-between">
             <h3 className="font-bold text-sm text-stone-900">Seller Onboarding Applications</h3>
             <span className="text-xs text-stone-500 font-medium">
@@ -254,15 +255,18 @@ export const AdminDashboardPage: React.FC = () => {
                   <div className="space-y-1.5 max-w-xl">
                     <div className="flex items-center gap-2">
                       <h4 className="text-base font-extrabold text-stone-950">{app.store_name}</h4>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                        app.status === 'approved'
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : app.status === 'rejected'
-                          ? 'bg-rose-50 text-rose-700'
-                          : 'bg-amber-50 text-amber-700'
-                      }`}>
+                      <Badge
+                        variant={
+                          app.status === 'approved'
+                            ? 'success'
+                            : app.status === 'rejected'
+                            ? 'destructive'
+                            : 'warning'
+                        }
+                        size="sm"
+                      >
                         {app.status}
-                      </span>
+                      </Badge>
                     </div>
 
                     <p className="text-xs text-stone-600">
@@ -293,33 +297,42 @@ export const AdminDashboardPage: React.FC = () => {
 
                   <div className="flex items-center gap-2 shrink-0">
                     {app.status !== 'approved' && (
-                      <button
+                      <Button
+                        size="sm"
                         onClick={() => handleApproveSeller(app.id)}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white"
                       >
                         Approve Seller
-                      </button>
+                      </Button>
                     )}
 
                     {app.status !== 'rejected' && (
-                      <button
+                      <Button
+                        size="sm"
+                        variant="destructive"
                         onClick={() => handleRejectSeller(app.id)}
-                        className="px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition"
+                        className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 shadow-none"
                       >
                         Reject
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* TAB 3: PRODUCT MODERATION */}
       {activeTab === 'products' && (
-        <div className="bg-white rounded-3xl border border-sand-200 overflow-hidden">
+        <motion.div
+          key="tab-products"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white rounded-3xl border border-sand-200 shadow-soft-sm overflow-hidden"
+        >
           <div className="p-4 border-b border-sand-100 flex items-center justify-between">
             <h3 className="font-bold text-sm text-stone-900">Catalog Moderation</h3>
             <span className="text-xs text-stone-500 font-medium">
@@ -347,15 +360,18 @@ export const AdminDashboardPage: React.FC = () => {
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-bold text-stone-900">{p.name}</h4>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                            status === 'approved'
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : status === 'rejected'
-                              ? 'bg-rose-50 text-rose-700'
-                              : 'bg-blue-50 text-blue-700'
-                          }`}>
+                          <Badge
+                            variant={
+                              status === 'approved'
+                                ? 'success'
+                                : status === 'rejected'
+                                ? 'destructive'
+                                : 'brand'
+                            }
+                            size="sm"
+                          >
                             {status.replace('_', ' ')}
-                          </span>
+                          </Badge>
                         </div>
 
                         <div className="flex items-center gap-2 mt-0.5 text-xs text-stone-500">
@@ -370,26 +386,29 @@ export const AdminDashboardPage: React.FC = () => {
 
                     <div className="flex items-center gap-2 shrink-0">
                       {status !== 'approved' && (
-                        <button
+                        <Button
+                          size="sm"
                           onClick={() => handleApproveProduct(p.id)}
-                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white"
                         >
                           Approve
-                        </button>
+                        </Button>
                       )}
 
                       {status !== 'rejected' && (
-                        <button
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => handleRejectProduct(p.id)}
-                          className="px-3.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs transition"
+                          className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
                         >
                           Reject
-                        </button>
+                        </Button>
                       )}
 
                       <button
                         onClick={() => handleDeleteProduct(p.id)}
-                        className="p-1.5 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                        className="p-2 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                         title="Delete product permanently"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -400,12 +419,18 @@ export const AdminDashboardPage: React.FC = () => {
               })}
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* TAB 4: VERIFIED SELLERS */}
       {activeTab === 'sellers' && (
-        <div className="bg-white rounded-3xl border border-sand-200 overflow-hidden">
+        <motion.div
+          key="tab-sellers"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white rounded-3xl border border-sand-200 shadow-soft-sm overflow-hidden"
+        >
           <div className="p-4 border-b border-sand-100">
             <h3 className="font-bold text-sm text-stone-900">Verified Seller Roster</h3>
           </div>
@@ -424,13 +449,13 @@ export const AdminDashboardPage: React.FC = () => {
                   </div>
                 </div>
 
-                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
+                <Badge variant="success" size="sm">
                   Verified
-                </span>
+                </Badge>
               </div>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );

@@ -11,7 +11,7 @@ export const Footer: React.FC = () => {
           {/* Brand Info */}
           <div className="lg:col-span-2 space-y-4">
             <Link to="/" className="inline-block">
-              <SelluyLogo variant="full" size="md" className="brightness-125" />
+              <SelluyLogo variant="full" size="md" theme="dark" />
             </Link>
             <p className="text-sm text-stone-400 leading-relaxed max-w-sm">
               Discover local. Buy direct. The local-first marketplace empowering verified independent creators, handmade studios, and local artisans across India.

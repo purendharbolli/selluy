@@ -9,9 +9,16 @@ export interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultMode?: 'login' | 'signup';
+  initialPhone?: string;
+  initialStep?: 'phone' | 'otp';
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  initialPhone = '',
+  initialStep = 'phone',
+}) => {
   const { sendOtp, verifyOtp } = useAuth();
 
   // Step 1: 'phone' -> Step 2: 'otp' -> Step 3: 'success'
@@ -24,16 +31,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [cooldown, setCooldown] = useState(0);
   const [attemptCount, setAttemptCount] = useState(0);
 
-  // Reset state on open/close
+  // Initialize or reset state on open/change
   useEffect(() => {
     if (isOpen) {
-      setStep('phone');
-      setPhone('');
+      const activeStep = initialStep || 'phone';
+      const cleanInitialPhone = initialPhone ? initialPhone.replace(/\D/g, '').slice(0, 10) : '';
+      setStep(activeStep);
+      setPhone(cleanInitialPhone);
       setOtp(['', '', '', '', '', '']);
       setErrorMsg('');
       setAttemptCount(0);
+
+      if (activeStep === 'otp') {
+        setCooldown(45);
+        setTimeout(() => {
+          document.getElementById('selluy-otp-0')?.focus();
+        }, 120);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, initialPhone, initialStep]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -331,6 +347,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     className="font-bold text-blue-600 hover:text-blue-700 disabled:text-stone-400 cursor-pointer"
                   >
                     {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend OTP'}
+                  </button>
+                </div>
+
+                <div className="flex justify-center pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtp(['1', '2', '3', '4', '5', '6']);
+                      setErrorMsg('');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-[11px] text-stone-500 hover:text-blue-600 bg-sand-100/80 hover:bg-blue-50 px-3 py-1 rounded-full border border-sand-200/90 transition cursor-pointer"
+                  >
+                    <span>Demo helper: Auto-fill</span>
+                    <span className="font-bold text-stone-900 bg-white px-1.5 py-0.2 rounded shadow-2xs font-mono">123456</span>
                   </button>
                 </div>
 

@@ -31,7 +31,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'cat-art',
     name: 'Art & Prints',
     slug: 'art',
-    image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80',
     active: true,
   },
   {
@@ -52,7 +52,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'cat-beauty',
     name: 'Clean Beauty & Soaps',
     slug: 'beauty',
-    image: 'https://images.unsplash.com/photo-1608248597359-566b7201b17b?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=600&q=80',
     active: true,
   },
   {

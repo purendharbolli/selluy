@@ -38,6 +38,10 @@ export const CategoriesPage: React.FC = () => {
                 <img
                   src={cat.image}
                   alt={cat.name}
+                  loading="lazy"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=600&q=80';
+                  }}
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                 />
               </div>

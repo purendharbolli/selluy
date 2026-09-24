@@ -59,7 +59,15 @@ class MarketplaceService {
       if (savedSellers) this.sellers = JSON.parse(savedSellers);
 
       const savedCats = localStorage.getItem(STORAGE_CATEGORIES);
-      if (savedCats) this.categories = JSON.parse(savedCats);
+      if (savedCats) {
+        const parsed: Category[] = JSON.parse(savedCats);
+        this.categories = INITIAL_CATEGORIES.map((cat) => {
+          const match = parsed.find((p) => p.id === cat.id);
+          return match ? { ...match, image: cat.image } : cat;
+        });
+      } else {
+        this.categories = INITIAL_CATEGORIES;
+      }
 
       const savedApps = localStorage.getItem(STORAGE_APPLICATIONS);
       if (savedApps) this.applications = JSON.parse(savedApps);

@@ -1,0 +1,80 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Star, MapPin, PackageCheck, ArrowRight } from 'lucide-react';
+import { SellerProfile } from '../../types';
+import { VerifiedBadge } from '../common/Badge';
+
+interface SellerCardProps {
+  seller: SellerProfile;
+  productCount?: number;
+}
+
+export const SellerCard: React.FC<SellerCardProps> = ({ seller, productCount }) => {
+  return (
+    <div className="bg-white rounded-3xl p-5 border border-sand-200/90 shadow-soft-sm hover:shadow-soft hover:border-brand-200 transition-all duration-300 flex flex-col justify-between">
+      <div>
+        {/* Header with avatar & details */}
+        <div className="flex items-start gap-3.5 mb-3.5">
+          <img
+            src={seller.logo}
+            alt={seller.store_name}
+            className="w-14 h-14 rounded-2xl object-cover border border-sand-200 shadow-xs"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h4 className="font-bold text-gray-900 truncate text-base hover:text-brand-600 transition">
+                <Link to={`/seller/${seller.id}`}>{seller.store_name}</Link>
+              </h4>
+              {seller.verification_status === 'approved' && (
+                <VerifiedBadge size="sm" showText={false} />
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
+              <span className="flex items-center gap-0.5 text-stone-800 font-semibold">
+                <MapPin className="w-3 h-3 text-brand-600" />
+                {seller.city}
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1 text-amber-600 font-semibold">
+                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                {seller.rating.toFixed(1)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bio snippet */}
+        <p className="text-xs text-stone-600 line-clamp-2 leading-relaxed mb-4">
+          {seller.description}
+        </p>
+
+        {/* Metrics */}
+        <div className="grid grid-cols-2 gap-2 p-2.5 bg-sand-50 rounded-2xl border border-sand-200/60 text-xs mb-4">
+          <div>
+            <span className="text-stone-400 block text-[10px] uppercase font-bold">Category</span>
+            <span className="font-semibold text-stone-800 truncate block">
+              {seller.category_focus || 'Handmade'}
+            </span>
+          </div>
+          <div>
+            <span className="text-stone-400 block text-[10px] uppercase font-bold">Completed</span>
+            <span className="font-semibold text-stone-800 flex items-center gap-1">
+              <PackageCheck className="w-3.5 h-3.5 text-emerald-600" />
+              {seller.completed_orders}+ orders
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Action */}
+      <Link
+        to={`/seller/${seller.id}`}
+        className="w-full py-2.5 px-4 rounded-2xl bg-sand-100 hover:bg-stone-900 hover:text-white text-stone-900 font-bold text-xs flex items-center justify-center gap-1.5 transition duration-200"
+      >
+        <span>Visit Storefront</span>
+        <ArrowRight className="w-3.5 h-3.5" />
+      </Link>
+    </div>
+  );
+};

@@ -1,18 +1,33 @@
-export type UserRole = 'buyer' | 'seller' | 'admin';
+export type UserRole = 'customer' | 'buyer' | 'seller' | 'admin';
 
-export type SellerVerificationStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
+export type SellerVerificationStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended';
 
-export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type ProductStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'paused' | 'out_of_stock' | 'deleted';
+
+export type SellerType = 'individual' | 'small_business' | 'local_store' | 'brand';
+
+export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'return_requested' | 'returned';
+
+export interface City {
+  id: string;
+  name: string;
+  state: string;
+  country: string;
+  slug: string;
+  is_active: boolean;
+}
 
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   phone?: string;
   role: UserRole;
   avatar?: string;
   city?: string;
+  city_id?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface SellerProfile {
@@ -25,11 +40,36 @@ export interface SellerProfile {
   state?: string;
   social_link?: string;
   category_focus?: string;
+  seller_type?: SellerType;
   verification_status: SellerVerificationStatus;
-  rating: number;
-  total_reviews: number;
-  completed_orders: number;
+  rating?: number;
+  total_reviews?: number;
+  completed_orders?: number;
   created_at: string;
+}
+
+export interface SellerApplication {
+  id: string;
+  user_id: string;
+  full_name: string;
+  store_name: string;
+  seller_type: SellerType;
+  city: string;
+  area?: string;
+  category: string;
+  description: string;
+  phone: string;
+  email: string;
+  documents?: {
+    id_proof_url?: string;
+    business_proof_url?: string;
+    craft_samples?: string[];
+  };
+  status: 'pending' | 'under_review' | 'approved' | 'rejected';
+  rejection_reason?: string;
+  internal_notes?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface Category {
@@ -53,6 +93,8 @@ export interface Product {
   images: string[];
   city: string;
   active: boolean;
+  status?: ProductStatus;
+  rejection_reason?: string;
   featured?: boolean;
   trending?: boolean;
   created_at: string;

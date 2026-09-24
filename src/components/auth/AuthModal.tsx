@@ -1,232 +1,318 @@
-import React, { useState } from 'react';
-import { X, Sparkles, Store, ShoppingBag, ArrowRight, CheckCircle2, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Smartphone, ArrowRight, ShieldCheck, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { POPULAR_CITIES } from '../../context/LocationContext';
+import { SelluyLogo } from '../common/SelluyLogo';
 
-interface AuthModalProps {
+export interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialMode?: 'signin' | 'signup';
+  defaultMode?: 'login' | 'signup';
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({
-  isOpen,
-  onClose,
-  initialMode = 'signin',
-}) => {
-  const { login, signup } = useAuth();
-  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
-  const [roleChoice, setRoleChoice] = useState<'buyer' | 'seller'>('buyer');
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+  const { sendOtp, verifyOtp } = useAuth();
 
-  // Form states
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [city, setCity] = useState('Hyderabad');
+  // Step 1: 'phone' -> Step 2: 'otp' -> Step 3: 'success'
+  const [step, setStep] = useState<'phone' | 'otp' | 'success'>('phone');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
-  const [successToast, setSuccessToast] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [attemptCount, setAttemptCount] = useState(0);
+
+  // Reset state on open/close
+  useEffect(() => {
+    if (isOpen) {
+      setStep('phone');
+      setPhone('');
+      setOtp(['', '', '', '', '', '']);
+      setErrorMsg('');
+      setAttemptCount(0);
+    }
+  }, [isOpen]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  // Format 10-digit phone
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '');
+    if (raw.length <= 10) {
+      setPhone(raw);
+      setErrorMsg('');
+    }
+  };
 
+  // Submit phone number to request OTP
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+
+    if (phone.length !== 10 || !/^[6-9]\d{9}$/.test(phone)) {
+      setErrorMsg('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      if (mode === 'signin') {
-        await login(email, roleChoice);
+      const res = await sendOtp(phone);
+      if (res.success) {
+        setIsNewUser(res.isNewUser);
+        setStep('otp');
+        setCooldown(45); // 45 seconds cooldown
       } else {
-        await signup(name, email, roleChoice, city);
+        setErrorMsg(res.error || 'Failed to send OTP.');
       }
-      setSuccessToast(true);
-      setTimeout(() => {
-        setSuccessToast(false);
-        onClose();
-      }, 1000);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDemoBuyer = async () => {
-    setIsLoading(true);
-    await login('aarav@example.com', 'buyer');
-    setIsLoading(false);
-    onClose();
+  // Handle OTP digit input
+  const handleOtpDigitChange = (index: number, val: string) => {
+    const digit = val.replace(/\D/g, '').slice(-1);
+    const newOtp = [...otp];
+    newOtp[index] = digit;
+    setOtp(newOtp);
+
+    // Auto-advance focus to next input
+    if (digit && index < 5) {
+      const nextInput = document.getElementById(`selluy-otp-${index + 1}`);
+      nextInput?.focus();
+    }
   };
 
-  const handleDemoSeller = async () => {
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      const prevInput = document.getElementById(`selluy-otp-${index - 1}`);
+      prevInput?.focus();
+    }
+  };
+
+  // Verify OTP submission
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = otp.join('');
+    if (token.length !== 6) {
+      setErrorMsg('Please enter the full 6-digit verification code.');
+      return;
+    }
+
+    if (attemptCount >= 5) {
+      setErrorMsg('Maximum attempts reached. Please request a new OTP.');
+      return;
+    }
+
     setIsLoading(true);
-    await login('team@localthread.in', 'seller');
-    setIsLoading(false);
-    onClose();
+    setErrorMsg('');
+    try {
+      const res = await verifyOtp(phone, token);
+      if (res.success) {
+        setStep('success');
+        setTimeout(() => {
+          onClose();
+        }, 1200);
+      } else {
+        setAttemptCount((prev) => prev + 1);
+        setErrorMsg(res.error || 'Incorrect OTP code. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Resend OTP
+  const handleResend = async () => {
+    if (cooldown > 0) return;
+    setIsLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await sendOtp(phone);
+      if (res.success) {
+        setCooldown(45);
+        setOtp(['', '', '', '', '', '']);
+        setAttemptCount(0);
+      } else {
+        setErrorMsg(res.error || 'Failed to resend OTP.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white rounded-4xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-sand-200 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm animate-fadeIn">
+      <div className="relative bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-sand-200 overflow-hidden">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-full hover:bg-sand-100 text-stone-400 hover:text-stone-700 transition"
+          className="absolute top-5 right-5 p-2 rounded-full text-stone-400 hover:text-stone-700 hover:bg-sand-100 transition"
+          aria-label="Close modal"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Brand header */}
-        <div className="flex items-center gap-2.5 mb-5">
-          <div className="w-9 h-9 rounded-2xl bg-brand-500 flex items-center justify-center shadow-xs">
-            <span className="text-white font-extrabold text-xl">S</span>
-          </div>
-          <div>
-            <h3 className="text-lg font-black text-stone-950 font-display">
-              {mode === 'signin' ? 'Welcome Back to Selluy' : 'Join the Selluy Community'}
-            </h3>
-            <p className="text-xs text-stone-500">Discover local. Buy direct.</p>
-          </div>
+        {/* Modal Brand Header */}
+        <div className="flex flex-col items-center text-center mb-6">
+          <SelluyLogo variant="symbol" size="lg" className="mb-3" />
+          <h3 className="text-2xl font-black text-stone-950 font-display">
+            {step === 'phone'
+              ? 'Welcome to Selluy'
+              : step === 'otp'
+              ? 'Verify your number'
+              : 'Verified successfully!'}
+          </h3>
+          <p className="text-xs sm:text-sm text-stone-600 mt-1 max-w-xs">
+            {step === 'phone'
+              ? 'Enter your Indian mobile number to access verified indie sellers.'
+              : step === 'otp'
+              ? `We sent a 6-digit OTP to +91 ${phone.slice(0, 5)} ${phone.slice(5)}`
+              : 'Taking you into the local marketplace...'}
+          </p>
         </div>
 
-        {/* Mode switcher tabs */}
-        <div className="flex rounded-2xl bg-sand-100 p-1 mb-5 text-xs font-bold">
-          <button
-            onClick={() => setMode('signin')}
-            className={`flex-1 py-2 rounded-xl transition ${
-              mode === 'signin' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-900'
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => setMode('signup')}
-            className={`flex-1 py-2 rounded-xl transition ${
-              mode === 'signup' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-900'
-            }`}
-          >
-            Create Account
-          </button>
-        </div>
-
-        {successToast ? (
-          <div className="py-8 text-center space-y-2">
-            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto animate-bounce" />
-            <p className="text-sm font-bold text-stone-900">
-              {mode === 'signin' ? 'Signed in successfully!' : 'Account created! Welcome to Selluy.'}
-            </p>
+        {/* Error message alert */}
+        {errorMsg && (
+          <div className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-700">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+            <span>{errorMsg}</span>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-            {/* Choose account type if signing up */}
-            {mode === 'signup' && (
-              <div>
-                <label className="block font-bold text-stone-700 mb-1.5">I am joining as:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRoleChoice('buyer')}
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2 ${
-                      roleChoice === 'buyer'
-                        ? 'border-brand-500 bg-brand-50/60 text-brand-900 font-bold'
-                        : 'border-sand-200 hover:bg-sand-50 text-stone-700'
-                    }`}
-                  >
-                    <ShoppingBag className="w-4 h-4 text-brand-600" />
-                    <div>
-                      <span className="block text-xs">Shopper</span>
-                      <span className="text-[10px] text-stone-500 font-normal">Discover & buy</span>
-                    </div>
-                  </button>
+        )}
 
-                  <button
-                    type="button"
-                    onClick={() => setRoleChoice('seller')}
-                    className={`p-3 rounded-2xl border text-left transition flex items-center gap-2 ${
-                      roleChoice === 'seller'
-                        ? 'border-brand-500 bg-brand-50/60 text-brand-900 font-bold'
-                        : 'border-sand-200 hover:bg-sand-50 text-stone-700'
-                    }`}
-                  >
-                    <Store className="w-4 h-4 text-amber-600" />
-                    <div>
-                      <span className="block text-xs">Creator / Studio</span>
-                      <span className="text-[10px] text-stone-500 font-normal">Sell products</span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {mode === 'signup' && (
-              <div>
-                <label className="block font-bold text-stone-700 mb-1">Your Full Name</label>
+        {/* STEP 1: Phone Input */}
+        {step === 'phone' && (
+          <form onSubmit={handleSendOtp} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Indian Mobile Number
+              </label>
+              <div className="relative flex items-center rounded-2xl border border-sand-300 focus-within:ring-2 focus-within:ring-brand-500 focus-within:border-brand-500 bg-sand-50/50 overflow-hidden transition">
+                <span className="px-3.5 py-3 text-sm font-bold text-stone-600 border-r border-sand-200 bg-sand-100/60 select-none">
+                  🇮🇳 +91
+                </span>
                 <input
-                  type="text"
+                  type="tel"
+                  placeholder="Enter 10-digit number"
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  className="w-full px-3.5 py-3 text-base font-semibold text-stone-900 bg-transparent focus:outline-none placeholder-stone-400"
+                  autoFocus
                   required
-                  placeholder="e.g. Aanya Sharma"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-sand-300 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none"
                 />
               </div>
-            )}
-
-            <div>
-              <label className="block font-bold text-stone-700 mb-1">Email Address</label>
-              <input
-                type="email"
-                required
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-sand-300 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none"
-              />
+              <p className="text-[11px] text-stone-500 mt-1.5 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                Auto-verifies without password hassles.
+              </p>
             </div>
-
-            {mode === 'signup' && (
-              <div>
-                <label className="block font-bold text-stone-700 mb-1">Your City</label>
-                <select
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-sand-300 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none bg-white"
-                >
-                  {POPULAR_CITIES.filter((c) => c !== 'All Cities').map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 px-6 rounded-full bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2 mt-2"
+              disabled={isLoading || phone.length !== 10}
+              className="w-full py-3.5 rounded-full bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2"
             >
-              {isLoading ? 'Processing...' : mode === 'signin' ? 'Sign In to Selluy' : 'Create My Account'}
-              <ArrowRight className="w-4 h-4" />
+              {isLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Sending code...
+                </>
+              ) : (
+                <>
+                  Continue
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
         )}
 
-        {/* Demo Fast Logins for Convenience */}
-        <div className="mt-5 pt-4 border-t border-sand-100 space-y-2">
-          <p className="text-[11px] text-stone-400 font-bold uppercase tracking-wider text-center">
-            One-Click Demo Accounts:
-          </p>
-          <div className="flex gap-2">
+        {/* STEP 2: 6-Digit OTP */}
+        {step === 'otp' && (
+          <form onSubmit={handleVerifyOtp} className="space-y-5">
+            <div className="flex justify-between gap-2">
+              {otp.map((digit, idx) => (
+                <input
+                  key={idx}
+                  id={`selluy-otp-${idx}`}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleOtpDigitChange(idx, e.target.value)}
+                  onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                  className="w-12 h-14 text-center text-xl font-black text-stone-900 border border-sand-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-sand-50/50"
+                  autoFocus={idx === 0}
+                />
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-stone-500 pt-1">
+              <button
+                type="button"
+                onClick={() => setStep('phone')}
+                className="hover:text-brand-600 underline font-medium"
+              >
+                Change number
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={cooldown > 0 || isLoading}
+                className="font-bold text-brand-600 hover:text-brand-700 disabled:text-stone-400"
+              >
+                {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend OTP'}
+              </button>
+            </div>
+
             <button
-              onClick={handleDemoBuyer}
-              className="flex-1 py-1.5 px-3 rounded-xl bg-sand-100 hover:bg-sand-200 text-stone-700 text-xs font-semibold transition"
+              type="submit"
+              disabled={isLoading || otp.join('').length !== 6}
+              className="w-full py-3.5 rounded-full bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2"
             >
-              Demo Buyer
+              {isLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  Verify &amp; Continue
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
-            <button
-              onClick={handleDemoSeller}
-              className="flex-1 py-1.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold transition"
-            >
-              Demo Creator Studio
-            </button>
+          </form>
+        )}
+
+        {/* STEP 3: Success */}
+        {step === 'success' && (
+          <div className="py-8 flex flex-col items-center justify-center text-center animate-fadeIn">
+            <CheckCircle2 className="w-16 h-16 text-emerald-500 mb-3" />
+            <h4 className="text-xl font-black text-stone-950">You&apos;re Signed In!</h4>
+            <p className="text-xs text-stone-600 mt-1">
+              {isNewUser ? 'Account created. Setting up local city discovery...' : 'Welcome back to Selluy.'}
+            </p>
           </div>
+        )}
+
+        {/* Footer Note */}
+        <div className="mt-6 pt-4 border-t border-sand-100 text-center text-[11px] text-stone-400">
+          By continuing, you agree to Selluy&apos;s Terms of Service and Privacy Policy.
         </div>
       </div>
     </div>
   );
 };
+
+export default AuthModal;

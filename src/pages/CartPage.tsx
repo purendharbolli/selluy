@@ -10,7 +10,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { VerifiedBadge } from '../components/common/Badge';
+import { VerifiedBadge } from '../components/common/VerifiedBadge';
 
 export const CartPage: React.FC = () => {
   const {
@@ -28,17 +28,17 @@ export const CartPage: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
         <div className="w-16 h-16 rounded-full bg-sand-100 text-stone-400 flex items-center justify-center mx-auto mb-4">
-          <ShoppingBag className="w-8 h-8" />
+          <ShoppingBag className="w-8 h-8 text-stone-400" />
         </div>
-        <h2 className="text-2xl font-black text-stone-900 mb-2">Your Bag is Empty</h2>
+        <h2 className="text-2xl font-black text-stone-900 mb-2 font-display">Your Bag is Empty</h2>
         <p className="text-stone-500 text-sm max-w-sm mx-auto mb-6">
           Support independent Indian creators by finding something special for yourself or loved ones.
         </p>
         <Link
           to="/explore"
-          className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-brand-600 text-white font-bold text-sm shadow-md hover:bg-brand-500 transition"
+          className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-blue-600 text-white font-bold text-sm shadow-md hover:bg-blue-500 transition"
         >
-          Explore Creations <ArrowRight className="w-4 h-4" />
+          Explore Drops <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
     );
@@ -53,12 +53,12 @@ export const CartPage: React.FC = () => {
             Shopping Bag ({cart.reduce((s, i) => s + i.quantity, 0)})
           </h1>
           <p className="text-xs text-stone-500 mt-0.5">
-            Purchasing directly from independent studios
+            Purchasing directly from verified independent studios
           </p>
         </div>
         <Link
           to="/explore"
-          className="text-xs font-bold text-stone-600 hover:text-brand-600 flex items-center gap-1"
+          className="text-xs font-bold text-stone-600 hover:text-blue-600 flex items-center gap-1"
         >
           <ArrowLeft className="w-4 h-4" />
           Continue Shopping
@@ -100,119 +100,103 @@ export const CartPage: React.FC = () => {
 
                   <Link
                     to={`/product/${product.id}`}
-                    className="text-sm sm:text-base font-bold text-stone-900 hover:text-brand-600 transition line-clamp-1"
+                    className="font-bold text-sm text-stone-900 hover:text-blue-600 block line-clamp-1"
                   >
                     {product.name}
                   </Link>
 
-                  <div className="text-xs text-stone-500">
-                    City: <span className="font-semibold text-stone-800">{product.city}</span>
-                  </div>
-
-                  <div className="text-sm font-extrabold text-stone-950 sm:hidden">
-                    ₹{(product.price * quantity).toLocaleString('en-IN')}
+                  <div className="flex items-baseline gap-2 pt-0.5">
+                    <span className="text-sm font-black text-stone-950">
+                      ₹{(product.price * quantity).toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-xs text-stone-400">
+                      (₹{product.price} each)
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Quantity Controls & Remove */}
-              <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-sand-100">
+              <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-0 border-sand-100">
                 <div className="flex items-center border border-sand-300 rounded-xl bg-sand-50 p-0.5">
                   <button
                     onClick={() => updateQuantity(product.id, quantity - 1)}
-                    className="w-7 h-7 rounded-lg bg-white hover:bg-sand-100 text-stone-800 font-bold flex items-center justify-center text-xs transition"
+                    className="w-7 h-7 rounded-lg bg-white text-stone-800 font-bold text-xs flex items-center justify-center hover:bg-sand-100"
                   >
                     -
                   </button>
-                  <span className="w-8 text-center text-xs font-bold text-stone-900">{quantity}</span>
+                  <span className="w-8 text-center text-xs font-bold text-stone-900">
+                    {quantity}
+                  </span>
                   <button
                     onClick={() => updateQuantity(product.id, quantity + 1)}
-                    className="w-7 h-7 rounded-lg bg-white hover:bg-sand-100 text-stone-800 font-bold flex items-center justify-center text-xs transition"
+                    className="w-7 h-7 rounded-lg bg-white text-stone-800 font-bold text-xs flex items-center justify-center hover:bg-sand-100"
                   >
                     +
                   </button>
                 </div>
 
-                <div className="hidden sm:block text-right min-w-[80px]">
-                  <span className="text-base font-black text-stone-950 block">
-                    ₹{(product.price * quantity).toLocaleString('en-IN')}
-                  </span>
-                  {quantity > 1 && (
-                    <span className="text-[10px] text-stone-400 block">
-                      (₹{product.price} each)
-                    </span>
-                  )}
-                </div>
+                <button
+                  onClick={() => toggleWishlist(product)}
+                  className="p-2 text-stone-400 hover:text-rose-500 rounded-xl hover:bg-sand-50"
+                  title="Move to wishlist"
+                >
+                  <Heart className="w-4 h-4" />
+                </button>
 
-                {/* Save for later / Remove */}
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      toggleWishlist(product);
-                      removeFromCart(product.id);
-                    }}
-                    className="p-2 rounded-xl text-stone-400 hover:text-rose-500 hover:bg-rose-50 transition"
-                    title="Save for later"
-                  >
-                    <Heart className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => removeFromCart(product.id)}
-                    className="p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-sand-100 transition"
-                    title="Remove item"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={() => removeFromCart(product.id)}
+                  className="p-2 text-stone-400 hover:text-stone-700 rounded-xl hover:bg-sand-50"
+                  title="Remove from bag"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Order Summary Card */}
+        {/* Order Summary Sidebar */}
         <div className="space-y-4">
-          <div className="bg-white rounded-3xl p-6 border border-sand-200/90 shadow-soft-sm space-y-5">
-            <h3 className="text-base font-bold text-stone-900 pb-3 border-b border-sand-100">
+          <div className="bg-white rounded-3xl p-6 border border-sand-200 shadow-soft-sm space-y-5">
+            <h3 className="font-black text-base text-stone-950 font-display border-b border-sand-100 pb-3">
               Order Summary
             </h3>
 
-            <div className="space-y-2.5 text-xs sm:text-sm">
+            <div className="space-y-2.5 text-xs">
               <div className="flex justify-between text-stone-600">
-                <span>Items Subtotal</span>
+                <span>Subtotal ({cart.length} creations)</span>
                 <span className="font-bold text-stone-900">₹{subtotal.toLocaleString('en-IN')}</span>
               </div>
-
               <div className="flex justify-between text-stone-600">
-                <span className="flex items-center gap-1">
-                  <Truck className="w-3.5 h-3.5 text-stone-400" />
-                  Direct Studio Delivery
-                </span>
+                <span>Direct Studio Shipping</span>
                 <span className="font-bold text-stone-900">
-                  {deliveryEstimate === 0 ? (
-                    <span className="text-emerald-600 font-bold">FREE (Above ₹999)</span>
-                  ) : (
-                    `₹${deliveryEstimate}`
-                  )}
+                  {deliveryEstimate === 0 ? 'FREE' : `₹${deliveryEstimate}`}
                 </span>
               </div>
-
-              <div className="pt-3 border-t border-sand-100 flex justify-between text-base font-black text-stone-950">
-                <span>Total Amount</span>
-                <span>₹{total.toLocaleString('en-IN')}</span>
+              <div className="pt-3 border-t border-sand-100 flex justify-between text-sm">
+                <span className="font-black text-stone-950">Total Amount</span>
+                <span className="font-black text-stone-950 text-base">₹{total.toLocaleString('en-IN')}</span>
               </div>
             </div>
 
             <button
               onClick={() => navigate('/checkout')}
-              className="w-full py-3.5 px-6 rounded-full bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2"
+              className="w-full py-3.5 px-6 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2"
             >
-              Proceed to Checkout Direct
+              <span>Proceed to Checkout</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
-            <div className="p-3 rounded-2xl bg-sand-50 border border-sand-200/60 text-[11px] text-stone-600 flex items-start gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <span>Payments held securely until your order is fulfilled and dispatched by the maker.</span>
+            <div className="pt-2 text-[11px] text-stone-500 space-y-2">
+              <p className="flex items-center gap-1.5 text-emerald-700 font-semibold">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                Verified direct creator dispatch
+              </p>
+              <p className="flex items-center gap-1.5 text-stone-600">
+                <Truck className="w-4 h-4 text-blue-600" />
+                Direct dispatch from local maker studio
+              </p>
             </div>
           </div>
         </div>
@@ -220,3 +204,5 @@ export const CartPage: React.FC = () => {
     </div>
   );
 };
+
+export default CartPage;

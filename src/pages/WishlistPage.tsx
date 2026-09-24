@@ -14,7 +14,7 @@ export const WishlistPage: React.FC = () => {
           Saved Creations ({wishlist.length})
         </h1>
         <p className="text-xs text-stone-500 mt-1">
-          Pieces you've bookmarked to buy or support
+          Pieces you&apos;ve bookmarked to buy or support
         </p>
       </div>
 
@@ -33,7 +33,7 @@ export const WishlistPage: React.FC = () => {
           </p>
           <Link
             to="/explore"
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-brand-600 text-white font-bold text-xs"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition"
           >
             Explore Pieces <ArrowRight className="w-4 h-4" />
           </Link>
@@ -42,3 +42,5 @@ export const WishlistPage: React.FC = () => {
     </div>
   );
 };
+
+export default WishlistPage;

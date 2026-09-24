@@ -48,9 +48,9 @@ export const CheckoutPage: React.FC = () => {
     e.preventDefault();
     setIsProcessing(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       // Create order in service
-      const newOrder = marketplaceService.createOrder({
+      const newOrder = await marketplaceService.createOrder({
         buyer_id: user?.id || 'usr-buyer-guest',
         buyer_name: formData.name,
         buyer_email: user?.email || 'buyer@example.com',

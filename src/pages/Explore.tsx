@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Search,
@@ -9,10 +9,12 @@ import {
   X,
   ArrowUpDown,
   Sparkles,
+  ShoppingBag,
 } from 'lucide-react';
 import { marketplaceService } from '../services/marketplaceService';
 import { ProductCard } from '../components/product/ProductCard';
 import { useLocation } from '../context/LocationContext';
+import { Product, Category } from '../types';
 
 export const Explore: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -27,19 +29,30 @@ export const Explore: React.FC = () => {
   const [cityFilter, setCityFilter] = useState<string>(
     initialFilter === 'nearby' ? selectedCity : 'all'
   );
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [maxPrice, setMaxPrice] = useState<number>(3000);
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'newest'>('featured');
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
-  const allProducts = marketplaceService.getProducts();
-  const categories = marketplaceService.getCategories();
-  const sellers = marketplaceService.getSellers();
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  // Extract unique cities from products and sellers
+  const loadData = () => {
+    setAllProducts(marketplaceService.getPublicProducts(selectedCity));
+    setCategories(marketplaceService.getCategories());
+  };
+
+  useEffect(() => {
+    loadData();
+    const unsub = marketplaceService.subscribe(loadData);
+    return () => unsub();
+  }, [selectedCity]);
+
+  // Extract unique cities from products
   const availableCities = useMemo(() => {
     const set = new Set<string>();
-    allProducts.forEach((p) => set.add(p.city));
+    allProducts.forEach((p) => {
+      if (p.city) set.add(p.city);
+    });
     return Array.from(set);
   }, [allProducts]);
 
@@ -47,11 +60,11 @@ export const Explore: React.FC = () => {
   const filteredProducts = useMemo(() => {
     return allProducts
       .filter((p) => {
-        // Search filter (name, description, seller store name, category)
+        // Search filter
         if (search.trim()) {
           const q = search.toLowerCase();
           const matchName = p.name.toLowerCase().includes(q);
-          const matchDesc = p.description.toLowerCase().includes(q);
+          const matchDesc = p.description?.toLowerCase().includes(q);
           const matchSeller = p.seller?.store_name.toLowerCase().includes(q);
           const matchCat = p.category?.name.toLowerCase().includes(q);
           if (!matchName && !matchDesc && !matchSeller && !matchCat) return false;
@@ -66,12 +79,7 @@ export const Explore: React.FC = () => {
 
         // City filter
         if (cityFilter !== 'all') {
-          if (p.city.toLowerCase() !== cityFilter.toLowerCase()) return false;
-        }
-
-        // Verified seller filter
-        if (verifiedOnly) {
-          if (p.seller?.verification_status !== 'approved') return false;
+          if (p.city?.toLowerCase() !== cityFilter.toLowerCase()) return false;
         }
 
         // Price filter
@@ -83,21 +91,21 @@ export const Explore: React.FC = () => {
         if (sortBy === 'price-asc') return a.price - b.price;
         if (sortBy === 'price-desc') return b.price - a.price;
         if (sortBy === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        // default: prioritize city then featured
-        if (cityFilter === 'all' && selectedCity !== 'All Cities') {
-          const aCity = a.city.toLowerCase() === selectedCity.toLowerCase() ? 1 : 0;
-          const bCity = b.city.toLowerCase() === selectedCity.toLowerCase() ? 1 : 0;
+
+        // Default: prioritize user's current city
+        if (selectedCity && selectedCity !== 'All Cities') {
+          const aCity = a.city?.toLowerCase() === selectedCity.toLowerCase() ? 1 : 0;
+          const bCity = b.city?.toLowerCase() === selectedCity.toLowerCase() ? 1 : 0;
           if (aCity !== bCity) return bCity - aCity;
         }
         return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
       });
-  }, [allProducts, search, selectedCategory, cityFilter, verifiedOnly, maxPrice, sortBy, selectedCity]);
+  }, [allProducts, search, selectedCategory, cityFilter, maxPrice, sortBy, selectedCity]);
 
   const resetFilters = () => {
     setSearch('');
     setSelectedCategory('all');
     setCityFilter('all');
-    setVerifiedOnly(false);
     setMaxPrice(3000);
     setSortBy('featured');
     setSearchParams({});
@@ -107,15 +115,15 @@ export const Explore: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">
+        <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">
           <Sparkles className="w-3.5 h-3.5" />
-          Direct from Independent Creators
+          Verified Local Catalog
         </div>
         <h1 className="text-3xl sm:text-4xl font-black text-stone-950 font-display">
-          Explore Unique Products
+          Explore Drops
         </h1>
         <p className="text-stone-600 text-sm mt-1">
-          Handmade, small-batch, and local items you won’t find in mass commercial malls.
+          Authentic handcrafted apparel, accessories, ceramics, and gifts directly from approved makers.
         </p>
       </div>
 
@@ -128,7 +136,7 @@ export const Explore: React.FC = () => {
             placeholder="Search by product, creator, or material..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white border border-sand-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-soft-sm"
+            className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white border border-sand-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-soft-sm"
           />
           {search && (
             <button
@@ -173,12 +181,12 @@ export const Explore: React.FC = () => {
         <aside className="hidden md:block space-y-6 bg-white p-6 rounded-3xl border border-sand-200 shadow-soft-sm h-fit sticky top-28">
           <div className="flex items-center justify-between pb-3 border-b border-sand-100">
             <h3 className="text-base font-bold text-stone-900 flex items-center gap-2">
-              <Filter className="w-4 h-4 text-brand-600" />
+              <Filter className="w-4 h-4 text-blue-600" />
               Filter By
             </h3>
             <button
               onClick={resetFilters}
-              className="text-xs text-brand-600 hover:underline font-semibold"
+              className="text-xs text-blue-600 hover:underline font-semibold"
             >
               Reset
             </button>
@@ -194,7 +202,7 @@ export const Explore: React.FC = () => {
                 onClick={() => setSelectedCategory('all')}
                 className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
                   selectedCategory === 'all'
-                    ? 'bg-brand-50 text-brand-700 font-bold'
+                    ? 'bg-blue-50 text-blue-700 font-bold'
                     : 'text-stone-600 hover:bg-sand-50'
                 }`}
               >
@@ -206,7 +214,7 @@ export const Explore: React.FC = () => {
                   onClick={() => setSelectedCategory(c.slug)}
                   className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
                     selectedCategory === c.slug
-                      ? 'bg-brand-50 text-brand-700 font-bold'
+                      ? 'bg-blue-50 text-blue-700 font-bold'
                       : 'text-stone-600 hover:bg-sand-50'
                   }`}
                 >
@@ -226,7 +234,7 @@ export const Explore: React.FC = () => {
                 onClick={() => setCityFilter('all')}
                 className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
                   cityFilter === 'all'
-                    ? 'bg-brand-50 text-brand-700 font-bold'
+                    ? 'bg-blue-50 text-blue-700 font-bold'
                     : 'text-stone-600 hover:bg-sand-50'
                 }`}
               >
@@ -238,7 +246,7 @@ export const Explore: React.FC = () => {
                   onClick={() => setCityFilter(city)}
                   className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between transition ${
                     cityFilter === city
-                      ? 'bg-brand-50 text-brand-700 font-bold'
+                      ? 'bg-blue-50 text-blue-700 font-bold'
                       : 'text-stone-600 hover:bg-sand-50'
                   }`}
                 >
@@ -247,43 +255,27 @@ export const Explore: React.FC = () => {
                     {city}
                   </span>
                   {selectedCity.toLowerCase() === city.toLowerCase() && (
-                    <span className="text-[10px] text-amber-600 bg-amber-50 px-1 rounded font-bold">You</span>
+                    <span className="text-[10px] text-blue-700 bg-blue-50 px-1 rounded font-bold">You</span>
                   )}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Verified Sellers Only */}
-          <div className="pt-2 border-t border-sand-100">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-stone-800">
-              <input
-                type="checkbox"
-                checked={verifiedOnly}
-                onChange={(e) => setVerifiedOnly(e.target.checked)}
-                className="rounded text-brand-600 focus:ring-brand-500 w-4 h-4 border-sand-300"
-              />
-              <span className="flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                Verified Sellers Only
-              </span>
-            </label>
-          </div>
-
           {/* Price Range */}
           <div className="pt-2 border-t border-sand-100">
             <div className="flex justify-between items-center text-xs font-bold text-stone-700 mb-2">
               <span>Max Price</span>
-              <span className="text-brand-600 font-black">₹{maxPrice.toLocaleString('en-IN')}</span>
+              <span className="text-blue-600 font-black">₹{maxPrice.toLocaleString('en-IN')}</span>
             </div>
             <input
               type="range"
               min="200"
-              max="3000"
+              max="5000"
               step="50"
               value={maxPrice}
               onChange={(e) => setMaxPrice(Number(e.target.value))}
-              className="w-full accent-brand-500 cursor-pointer"
+              className="w-full accent-blue-600 cursor-pointer"
             />
           </div>
         </aside>
@@ -302,124 +294,30 @@ export const Explore: React.FC = () => {
           </div>
 
           {filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  highlightCity={cityFilter !== 'all' ? cityFilter : selectedCity}
-                />
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {filteredProducts.map((p) => (
+                <ProductCard key={p.id} product={p} highlightCity={selectedCity} />
               ))}
             </div>
           ) : (
-            /* Empty state */
             <div className="bg-white rounded-3xl p-12 text-center border border-sand-200 shadow-soft-sm">
-              <div className="w-14 h-14 rounded-full bg-sand-100 text-stone-400 flex items-center justify-center mx-auto mb-4">
-                <Search className="w-6 h-6" />
-              </div>
+              <ShoppingBag className="w-10 h-10 text-stone-400 mx-auto mb-3" />
               <h3 className="text-lg font-bold text-stone-900">No creations found</h3>
-              <p className="text-xs sm:text-sm text-stone-500 max-w-sm mx-auto mt-1 mb-6">
-                Try loosening your filters or searching for something else like "earrings", "linen", or "prints".
+              <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
+                No approved products matched your search or filters. Try resetting the filters or switching cities.
               </p>
               <button
                 onClick={resetFilters}
-                className="px-6 py-2.5 rounded-full bg-brand-600 text-white font-bold text-xs hover:bg-brand-500 transition shadow-sm"
+                className="mt-4 px-5 py-2 rounded-full bg-sand-100 text-stone-800 text-xs font-bold hover:bg-sand-200 transition"
               >
-                Clear All Filters
+                Reset All Filters
               </button>
             </div>
           )}
         </main>
       </div>
-
-      {/* Mobile Filters Slide-over / Modal */}
-      {isMobileFiltersOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs md:hidden">
-          <div className="w-full max-w-xs bg-white h-full p-6 overflow-y-auto space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-sand-200">
-              <h3 className="font-bold text-base text-stone-900">Filters</h3>
-              <button
-                onClick={() => setIsMobileFiltersOpen(false)}
-                className="p-1 rounded-full hover:bg-sand-100 text-stone-500"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Category filter */}
-            <div>
-              <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-2">Category</label>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
-                <button
-                  onClick={() => setSelectedCategory('all')}
-                  className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                    selectedCategory === 'all' ? 'bg-brand-50 text-brand-700' : 'text-stone-700'
-                  }`}
-                >
-                  All Categories
-                </button>
-                {categories.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedCategory(c.slug)}
-                    className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                      selectedCategory === c.slug ? 'bg-brand-50 text-brand-700' : 'text-stone-700'
-                    }`}
-                  >
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* City filter */}
-            <div>
-              <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-2">City</label>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setCityFilter('all')}
-                  className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                    cityFilter === 'all' ? 'bg-brand-50 text-brand-700' : 'text-stone-700'
-                  }`}
-                >
-                  All Cities
-                </button>
-                {availableCities.map((city) => (
-                  <button
-                    key={city}
-                    onClick={() => setCityFilter(city)}
-                    className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                      cityFilter === city ? 'bg-brand-50 text-brand-700' : 'text-stone-700'
-                    }`}
-                  >
-                    {city}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Verified Only */}
-            <div>
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-stone-800">
-                <input
-                  type="checkbox"
-                  checked={verifiedOnly}
-                  onChange={(e) => setVerifiedOnly(e.target.checked)}
-                  className="rounded text-brand-600 w-4 h-4"
-                />
-                <span>Verified Sellers Only</span>
-              </label>
-            </div>
-
-            <button
-              onClick={() => setIsMobileFiltersOpen(false)}
-              className="w-full py-3 rounded-full bg-brand-600 text-white font-bold text-xs shadow-md"
-            >
-              Apply & See {filteredProducts.length} Results
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
+
+export default Explore;

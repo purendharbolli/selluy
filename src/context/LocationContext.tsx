@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 export interface LocationContextType {
   selectedCity: string;
   setSelectedCity: (city: string) => void;
+  setCity: (city: string) => void;
   availableCities: string[];
 }
 
@@ -12,11 +13,13 @@ export const POPULAR_CITIES = [
   'Bengaluru',
   'Mumbai',
   'Pune',
-  'Delhi NCR',
+  'Delhi',
   'Chennai',
   'Kolkata',
   'Jaipur',
-  'Ahmedabad'
+  'Ahmedabad',
+  'Kochi',
+  'Goa',
 ];
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
@@ -32,7 +35,14 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   return (
-    <LocationContext.Provider value={{ selectedCity, setSelectedCity, availableCities: POPULAR_CITIES }}>
+    <LocationContext.Provider
+      value={{
+        selectedCity,
+        setSelectedCity,
+        setCity: setSelectedCity,
+        availableCities: POPULAR_CITIES,
+      }}
+    >
       {children}
     </LocationContext.Provider>
   );
@@ -45,3 +55,5 @@ export const useLocation = (): LocationContextType => {
   }
   return context;
 };
+
+export default LocationContext;

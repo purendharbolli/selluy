@@ -70,6 +70,8 @@ export const OrderStatusBadge: React.FC<{ status: OrderStatus }> = ({ status }) 
     shipped: { bg: 'bg-indigo-50', text: 'text-indigo-800', border: 'border-indigo-200', label: 'Shipped' },
     delivered: { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', label: 'Delivered' },
     cancelled: { bg: 'bg-rose-50', text: 'text-rose-800', border: 'border-rose-200', label: 'Cancelled' },
+    return_requested: { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200', label: 'Return Requested' },
+    returned: { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200', label: 'Returned' },
   };
 
   const current = styles[status] || styles.pending;

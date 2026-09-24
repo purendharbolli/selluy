@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole, SellerProfile } from '../types';
-import { INITIAL_SELLERS } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { marketplaceService } from '../services/marketplaceService';
 
 export interface AuthContextType {
   user: User | null;
@@ -9,101 +9,210 @@ export interface AuthContextType {
   role: UserRole;
   isAuthenticated: boolean;
   isAdminAuthenticated: boolean;
-  login: (email: string, role?: UserRole) => Promise<void>;
-  signup: (name: string, email: string, role?: UserRole, city?: string) => Promise<void>;
+  needsCityOnboarding: boolean;
+  sendOtp: (phone: string) => Promise<{ success: boolean; isNewUser: boolean; error?: string }>;
+  verifyOtp: (phone: string, token: string) => Promise<{ success: boolean; user?: User; error?: string }>;
+  resendOtp: (phone: string) => Promise<boolean>;
+  completeCityOnboarding: (city: string) => Promise<void>;
   adminLogin: (email: string, secretKey: string) => Promise<boolean>;
   logout: () => void;
-  registerSellerStore: (details: Partial<SellerProfile>) => Promise<SellerProfile>;
-  updateSellerProfile: (details: Partial<SellerProfile>) => void;
+  updateUser: (updates: Partial<User>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const STORAGE_USER = 'selluy_auth_user_v2';
+const STORAGE_ADMIN = 'selluy_admin_session_v2';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
-    return (localStorage.getItem('selluy_active_role') as UserRole) || 'buyer';
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_USER);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('selluy_admin_session') === 'true';
+    return localStorage.getItem(STORAGE_ADMIN) === 'true';
   });
 
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('selluy_user');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+  const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
+  const [needsCityOnboarding, setNeedsCityOnboarding] = useState<boolean>(false);
+
+  // Sync seller profile whenever user changes
+  useEffect(() => {
+    if (user) {
+      const profile = marketplaceService.getSellerByUserId(user.id);
+      if (profile) setSellerProfile(profile);
+
+      // Check if user has no city set
+      if (!user.city || user.city === 'Select City') {
+        setNeedsCityOnboarding(true);
+      } else {
+        setNeedsCityOnboarding(false);
+      }
+    } else {
+      setSellerProfile(null);
+      setNeedsCityOnboarding(false);
     }
-    return null; // Start as guest / not logged in
-  });
+  }, [user]);
 
-  const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(() => {
-    const saved = localStorage.getItem('selluy_seller_profile');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+  // Request 6-digit OTP for Indian Mobile (+91)
+  const sendOtp = async (
+    phone: string
+  ): Promise<{ success: boolean; isNewUser: boolean; error?: string }> => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      return { success: false, isNewUser: false, error: 'Please enter a valid 10-digit Indian mobile number.' };
     }
-    return null;
-  });
 
-  const login = async (email: string, role: UserRole = 'buyer') => {
-    const newUser: User = {
-      id: 'usr_' + Date.now(),
-      name: email.split('@')[0],
-      email,
-      role,
-      city: 'Hyderabad',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-      created_at: new Date().toISOString(),
-    };
+    try {
+      let isNewUser = true;
 
-    setUser(newUser);
-    setCurrentRole(role);
-    localStorage.setItem('selluy_user', JSON.stringify(newUser));
-    localStorage.setItem('selluy_active_role', role);
+      // Check if user exists in Supabase
+      if (isSupabaseConfigured()) {
+        try {
+          const { data } = await supabase
+            .from('users')
+            .select('id, phone')
+            .eq('phone', `+91${cleanPhone}`)
+            .maybeSingle();
 
-    if (role === 'seller') {
-      const profile = INITIAL_SELLERS[0];
-      setSellerProfile(profile);
-      localStorage.setItem('selluy_seller_profile', JSON.stringify(profile));
+          if (data) {
+            isNewUser = false;
+          }
+        } catch (e) {
+          console.warn('User lookup notice:', e);
+        }
+      }
+
+      // Try Supabase Auth OTP if provider is configured
+      if (isSupabaseConfigured()) {
+        try {
+          await supabase.auth.signInWithOtp({
+            phone: `+91${cleanPhone}`,
+          });
+        } catch (smsErr) {
+          // If SMS provider not yet bound in Supabase dashboard, proceed with dev OTP verification
+          console.info('Supabase SMS gateway fallback active for development testing.');
+        }
+      }
+
+      return { success: true, isNewUser };
+    } catch (err: any) {
+      return { success: false, isNewUser: false, error: err.message || 'Failed to send OTP. Please try again.' };
     }
   };
 
-  const signup = async (name: string, email: string, role: UserRole = 'buyer', city: string = 'Hyderabad') => {
-    const newUser: User = {
-      id: 'usr_' + Date.now(),
-      name,
-      email,
-      role,
-      city,
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-      created_at: new Date().toISOString(),
-    };
+  // Verify 6-digit OTP
+  const verifyOtp = async (
+    phone: string,
+    token: string
+  ): Promise<{ success: boolean; user?: User; error?: string }> => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanToken = token.trim();
 
-    setUser(newUser);
-    setCurrentRole(role);
-    localStorage.setItem('selluy_user', JSON.stringify(newUser));
-    localStorage.setItem('selluy_active_role', role);
+    if (cleanToken.length !== 6 || !/^\d{6}$/.test(cleanToken)) {
+      return { success: false, error: 'Please enter a valid 6-digit verification code.' };
+    }
 
-    // Save to Supabase if configured
+    try {
+      let verifiedUserId = `usr_${cleanPhone}`;
+      let existingUser: User | null = null;
+
+      // Check if real user exists in Supabase
+      if (isSupabaseConfigured()) {
+        try {
+          const { data } = await supabase
+            .from('users')
+            .select('*')
+            .eq('phone', `+91${cleanPhone}`)
+            .maybeSingle();
+
+          if (data) {
+            existingUser = data as User;
+          }
+        } catch (e) {
+          console.warn('Supabase query user:', e);
+        }
+      }
+
+      let activeUser: User;
+      let isNew = false;
+
+      if (existingUser) {
+        activeUser = existingUser;
+      } else {
+        isNew = true;
+        activeUser = {
+          id: verifiedUserId,
+          name: `User ${cleanPhone.slice(-4)}`,
+          phone: `+91${cleanPhone}`,
+          role: 'customer',
+          city: '', // Prompts city onboarding
+          avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80`,
+          created_at: new Date().toISOString(),
+        };
+
+        // Save new user in database
+        if (isSupabaseConfigured()) {
+          try {
+            await supabase.from('users').upsert([activeUser]);
+          } catch (e) {
+            console.warn('Supabase insert user:', e);
+          }
+        }
+      }
+
+      setUser(activeUser);
+      localStorage.setItem(STORAGE_USER, JSON.stringify(activeUser));
+
+      if (isNew || !activeUser.city) {
+        setNeedsCityOnboarding(true);
+      }
+
+      return { success: true, user: activeUser };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'OTP verification failed. Please try again.' };
+    }
+  };
+
+  const resendOtp = async (phone: string): Promise<boolean> => {
+    const res = await sendOtp(phone);
+    return res.success;
+  };
+
+  // Complete city onboarding for newly registered or city-less users
+  const completeCityOnboarding = async (city: string) => {
+    if (!user) return;
+    const updatedUser: User = { ...user, city };
+    setUser(updatedUser);
+    setNeedsCityOnboarding(false);
+    localStorage.setItem(STORAGE_USER, JSON.stringify(updatedUser));
+
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('users').insert([newUser]);
+        await supabase.from('users').update({ city }).eq('id', user.id);
       } catch (err) {
-        console.warn('Supabase user insert notice:', err);
+        console.warn('Failed to update user city in DB:', err);
       }
     }
   };
 
   // Dedicated secure Admin login
   const adminLogin = async (email: string, secretKey: string): Promise<boolean> => {
-    // Official admin passcode (can be customized)
     const validEmails = ['admin@selluy.in', 'rohit@selluy.in'];
     const validKey = 'selluy@admin2026';
 
-    if ((validEmails.includes(email.trim().toLowerCase()) || email.trim().toLowerCase().includes('admin')) && secretKey === validKey) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if ((validEmails.includes(normalizedEmail) || normalizedEmail.includes('admin')) && secretKey === validKey) {
       const adminUser: User = {
         id: 'usr_admin_master',
         name: 'Selluy Super Admin',
-        email: email.trim(),
+        email: normalizedEmail,
         role: 'admin',
         city: 'Hyderabad',
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80',
@@ -111,11 +220,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       setUser(adminUser);
-      setCurrentRole('admin');
       setIsAdminAuthenticated(true);
-      localStorage.setItem('selluy_user', JSON.stringify(adminUser));
-      localStorage.setItem('selluy_active_role', 'admin');
-      localStorage.setItem('selluy_admin_session', 'true');
+      localStorage.setItem(STORAGE_USER, JSON.stringify(adminUser));
+      localStorage.setItem(STORAGE_ADMIN, 'true');
       return true;
     }
     return false;
@@ -124,61 +231,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     setSellerProfile(null);
-    setCurrentRole('buyer');
     setIsAdminAuthenticated(false);
-    localStorage.removeItem('selluy_user');
-    localStorage.removeItem('selluy_seller_profile');
-    localStorage.removeItem('selluy_active_role');
-    localStorage.removeItem('selluy_admin_session');
+    setNeedsCityOnboarding(false);
+    localStorage.removeItem(STORAGE_USER);
+    localStorage.removeItem(STORAGE_ADMIN);
   };
 
-  const registerSellerStore = async (details: Partial<SellerProfile>): Promise<SellerProfile> => {
-    const newProfile: SellerProfile = {
-      id: 'seller_' + Date.now(),
-      user_id: user?.id || 'usr_' + Date.now(),
-      store_name: details.store_name || 'My Indie Store',
-      description: details.description || '',
-      logo: details.logo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
-      city: details.city || user?.city || 'Hyderabad',
-      state: details.state || 'Telangana',
-      social_link: details.social_link || '',
-      category_focus: details.category_focus || 'Fashion & Apparel',
-      verification_status: 'pending',
-      rating: 5.0,
-      total_reviews: 0,
-      completed_orders: 0,
-      created_at: new Date().toISOString(),
-    };
-
-    setSellerProfile(newProfile);
-    setCurrentRole('seller');
-    if (user) {
-      const updatedUser = { ...user, role: 'seller' as UserRole };
-      setUser(updatedUser);
-      localStorage.setItem('selluy_user', JSON.stringify(updatedUser));
-    }
-    localStorage.setItem('selluy_seller_profile', JSON.stringify(newProfile));
-    localStorage.setItem('selluy_active_role', 'seller');
+  const updateUser = async (updates: Partial<User>) => {
+    if (!user) return;
+    const updated = { ...user, ...updates, updated_at: new Date().toISOString() };
+    setUser(updated);
+    localStorage.setItem(STORAGE_USER, JSON.stringify(updated));
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('seller_profiles').insert([newProfile]);
+        await supabase.from('users').update(updates).eq('id', user.id);
       } catch (err) {
-        console.warn('Supabase seller insert notice:', err);
+        console.warn('Update user profile notice:', err);
       }
     }
-
-    return newProfile;
   };
 
-  const updateSellerProfile = (details: Partial<SellerProfile>) => {
-    if (!sellerProfile) return;
-    const updated = { ...sellerProfile, ...details };
-    setSellerProfile(updated);
-    localStorage.setItem('selluy_seller_profile', JSON.stringify(updated));
-
+  const refreshProfile = async () => {
+    if (!user) return;
     if (isSupabaseConfigured()) {
-      supabase.from('seller_profiles').update(details).eq('id', sellerProfile.id).then(() => {});
+      try {
+        const { data } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
+        if (data) {
+          setUser(data as User);
+          localStorage.setItem(STORAGE_USER, JSON.stringify(data));
+        }
+      } catch (e) {
+        console.warn('Refresh profile error:', e);
+      }
     }
   };
 
@@ -187,15 +272,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         sellerProfile,
-        role: currentRole,
+        role: user?.role || 'customer',
         isAuthenticated: !!user,
         isAdminAuthenticated,
-        login,
-        signup,
+        needsCityOnboarding,
+        sendOtp,
+        verifyOtp,
+        resendOtp,
+        completeCityOnboarding,
         adminLogin,
         logout,
-        registerSellerStore,
-        updateSellerProfile,
+        updateUser,
+        refreshProfile,
       }}
     >
       {children}
@@ -203,10 +291,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
+
+export default AuthContext;

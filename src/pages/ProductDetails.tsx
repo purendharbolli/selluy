@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Heart,
   Share2,
   MapPin,
-  Star,
-  Check,
-  PackageCheck,
   ShoppingBag,
   ShieldCheck,
   ArrowLeft,
@@ -15,7 +12,7 @@ import {
 } from 'lucide-react';
 import { marketplaceService } from '../services/marketplaceService';
 import { useCart } from '../context/CartContext';
-import { VerifiedBadge } from '../components/common/Badge';
+import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { ProductCard } from '../components/product/ProductCard';
 
 export const ProductDetails: React.FC = () => {
@@ -23,7 +20,7 @@ export const ProductDetails: React.FC = () => {
   const navigate = useNavigate();
   const { addToCart, toggleWishlist, isInWishlist } = useCart();
 
-  const product = marketplaceService.getProductById(id || '');
+  const [product, setProduct] = useState(marketplaceService.getProductById(id || ''));
   const [selectedImage, setSelectedImage] = useState<number>(0);
   const [quantity, setQuantity] = useState<number>(1);
   const [addedToast, setAddedToast] = useState(false);
@@ -31,6 +28,11 @@ export const ProductDetails: React.FC = () => {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [reportSubmitted, setReportSubmitted] = useState(false);
+
+  useEffect(() => {
+    const p = marketplaceService.getProductById(id || '');
+    setProduct(p);
+  }, [id]);
 
   if (!product) {
     return (
@@ -41,7 +43,7 @@ export const ProductDetails: React.FC = () => {
         </p>
         <Link
           to="/explore"
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-brand-600 text-white font-bold text-xs"
+          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-blue-600 text-white font-bold text-xs"
         >
           <ArrowLeft className="w-4 h-4" />
           Explore Other Creations
@@ -53,9 +55,9 @@ export const ProductDetails: React.FC = () => {
   const isFavorited = isInWishlist(product.id);
   const seller = product.seller;
 
-  // Get similar products
+  // Get similar approved products
   const similarProducts = marketplaceService
-    .getProducts()
+    .getPublicProducts()
     .filter((p) => p.id !== product.id && (p.category_id === product.category_id || p.seller_id === product.seller_id))
     .slice(0, 4);
 
@@ -78,31 +80,11 @@ export const ProductDetails: React.FC = () => {
     }
   };
 
-  const handleReportSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reportReason.trim()) return;
-    marketplaceService.createReport({
-      reporter_id: 'guest',
-      reporter_name: 'Concerned Buyer',
-      target_type: 'product',
-      target_id: product.id,
-      target_title: product.name,
-      reason: reportReason.trim(),
-      status: 'pending',
-    });
-    setReportSubmitted(true);
-    setTimeout(() => {
-      setReportSubmitted(false);
-      setReportModalOpen(false);
-      setReportReason('');
-    }, 1800);
-  };
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
       {/* Breadcrumb / Back button */}
       <div className="flex items-center justify-between text-xs text-stone-500">
-        <Link to="/explore" className="inline-flex items-center gap-1 hover:text-brand-600 font-semibold">
+        <Link to="/explore" className="inline-flex items-center gap-1 hover:text-blue-600 font-semibold">
           <ArrowLeft className="w-4 h-4" />
           Back to marketplace
         </Link>
@@ -140,7 +122,7 @@ export const ProductDetails: React.FC = () => {
                   key={idx}
                   onClick={() => setSelectedImage(idx)}
                   className={`w-20 h-20 rounded-2xl overflow-hidden border-2 transition ${
-                    selectedImage === idx ? 'border-brand-500 shadow-sm' : 'border-sand-200 opacity-70 hover:opacity-100'
+                    selectedImage === idx ? 'border-blue-600 shadow-sm' : 'border-sand-200 opacity-70 hover:opacity-100'
                   }`}
                 >
                   <img src={img} alt="" className="w-full h-full object-cover" />
@@ -151,12 +133,24 @@ export const ProductDetails: React.FC = () => {
         </div>
 
         {/* Right: Info, Price, Actions */}
-        <div className="space-y-6 flex flex-col justify-between">
+        <div className="flex flex-col justify-between space-y-6">
           <div className="space-y-4">
-            {/* Seller Bar */}
+            {/* Category & City */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-blue-600 font-bold uppercase tracking-wider">
+                {product.category?.name || 'Craft'}
+              </span>
+              <span className="text-stone-300">•</span>
+              <span className="inline-flex items-center gap-1 text-stone-600 font-semibold bg-sand-100 px-2.5 py-0.5 rounded-full">
+                <MapPin className="w-3 h-3 text-stone-500" />
+                {product.city}
+              </span>
+            </div>
+
+            {/* Creator snippet card */}
             {seller && (
-              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-sand-50 border border-sand-200/80">
-                <Link to={`/seller/${seller.id}`} className="flex items-center gap-3 group">
+              <div className="p-3.5 rounded-2xl bg-white border border-sand-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
                   <img
                     src={seller.logo}
                     alt={seller.store_name}
@@ -164,37 +158,26 @@ export const ProductDetails: React.FC = () => {
                   />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <h4 className="text-xs font-bold text-stone-900 group-hover:text-brand-600 transition">
-                        {seller.store_name}
-                      </h4>
-                      {seller.verification_status === 'approved' && <VerifiedBadge size="sm" />}
+                      <h4 className="font-bold text-stone-900 text-sm">{seller.store_name}</h4>
+                      {seller.verification_status === 'approved' && (
+                        <VerifiedBadge size="sm" showText={false} />
+                      )}
                     </div>
-                    <span className="text-[11px] text-stone-500 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-stone-400" />
-                      {seller.city} • <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> {seller.rating.toFixed(1)}
-                    </span>
+                    <p className="text-[11px] text-stone-500">Based in {seller.city}</p>
                   </div>
-                </Link>
+                </div>
 
                 <Link
                   to={`/seller/${seller.id}`}
-                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-stone-900 hover:text-white border border-sand-200 text-stone-800 text-xs font-bold transition"
+                  className="text-xs font-bold text-blue-600 hover:underline"
                 >
-                  Visit Store
+                  View Studio
                 </Link>
               </div>
             )}
 
-            {/* Product Title & City */}
+            {/* Title */}
             <div>
-              <div className="flex items-center gap-2 text-xs text-stone-500 mb-1">
-                <span>{product.category?.name || 'Handmade'}</span>
-                <span>•</span>
-                <span className="font-semibold text-stone-700 flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-brand-600" />
-                  Made in {product.city}
-                </span>
-              </div>
               <h1 className="text-2xl sm:text-3xl font-black text-stone-950 font-display leading-tight">
                 {product.name}
               </h1>
@@ -210,7 +193,7 @@ export const ProductDetails: React.FC = () => {
                   <span className="text-base text-stone-400 line-through">
                     ₹{product.original_price.toLocaleString('en-IN')}
                   </span>
-                  <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 font-bold text-xs border border-rose-200">
+                  <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200">
                     {Math.round(((product.original_price - product.price) / product.original_price) * 100)}% OFF
                   </span>
                 </>
@@ -241,8 +224,8 @@ export const ProductDetails: React.FC = () => {
             </div>
 
             {/* Selluy Guarantee Pill */}
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-300/60 flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200 flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
               <div className="text-xs text-stone-800">
                 <span className="font-bold block">Selluy Direct Guarantee</span>
                 Direct contact with indie creator. No drop-shipped or factory duplicates.
@@ -295,20 +278,9 @@ export const ProductDetails: React.FC = () => {
               <button
                 onClick={handleBuyNow}
                 disabled={product.stock <= 0}
-                className="w-full py-3.5 px-6 rounded-full bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm shadow-md transition disabled:opacity-50"
+                className="w-full py-3.5 px-6 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-md transition disabled:opacity-50"
               >
                 Buy Now Direct
-              </button>
-            </div>
-
-            {/* Report Button */}
-            <div className="text-center pt-2">
-              <button
-                onClick={() => setReportModalOpen(true)}
-                className="text-[11px] text-stone-400 hover:text-stone-600 inline-flex items-center gap-1"
-              >
-                <Flag className="w-3 h-3" />
-                Report this listing
               </button>
             </div>
           </div>
@@ -319,8 +291,8 @@ export const ProductDetails: React.FC = () => {
       {similarProducts.length > 0 && (
         <section className="pt-10 border-t border-sand-200">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-black text-stone-950 font-display">More From This Creator & Category</h3>
-            <Link to="/explore" className="text-xs font-bold text-brand-600 hover:underline">
+            <h3 className="text-xl font-black text-stone-950 font-display">More From This Creator &amp; Category</h3>
+            <Link to="/explore" className="text-xs font-bold text-blue-600 hover:underline">
               See more
             </Link>
           </div>
@@ -331,50 +303,8 @@ export const ProductDetails: React.FC = () => {
           </div>
         </section>
       )}
-
-      {/* Report Modal */}
-      {reportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-sand-200 space-y-4">
-            <h3 className="text-base font-bold text-stone-900">Report Listing to Selluy Moderation</h3>
-            <p className="text-xs text-stone-500">
-              Help us maintain authentic Indian creators and keep our community free of low-quality dropshipping.
-            </p>
-
-            {reportSubmitted ? (
-              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 text-xs font-bold text-center">
-                Report submitted for administrative review. Thank you!
-              </div>
-            ) : (
-              <form onSubmit={handleReportSubmit} className="space-y-3">
-                <textarea
-                  rows={3}
-                  placeholder="Describe the issue (e.g. copyright, unauthentic handmade claim, misleading photos)..."
-                  value={reportReason}
-                  onChange={(e) => setReportReason(e.target.value)}
-                  className="w-full p-3 rounded-2xl border border-sand-300 text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                  required
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setReportModalOpen(false)}
-                    className="px-4 py-2 rounded-full bg-sand-100 text-xs font-bold text-stone-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-full bg-rose-600 text-xs font-bold text-white hover:bg-rose-500"
-                  >
-                    Submit Report
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
+
+export default ProductDetails;

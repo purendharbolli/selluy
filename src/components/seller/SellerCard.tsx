@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Star, MapPin, PackageCheck, ArrowRight } from 'lucide-react';
 import { SellerProfile } from '../../types';
-import { VerifiedBadge } from '../common/Badge';
+import { VerifiedBadge } from '../common/VerifiedBadge';
 
 interface SellerCardProps {
   seller: SellerProfile;
@@ -10,8 +10,10 @@ interface SellerCardProps {
 }
 
 export const SellerCard: React.FC<SellerCardProps> = ({ seller, productCount }) => {
+  const isVerified = seller.verification_status === 'approved' || (seller.verification_status as string) === 'verified';
+
   return (
-    <div className="bg-white rounded-3xl p-5 border border-sand-200/90 shadow-soft-sm hover:shadow-soft hover:border-brand-200 transition-all duration-300 flex flex-col justify-between">
+    <div className="bg-white rounded-3xl p-5 border border-sand-200/90 shadow-soft-sm hover:shadow-soft hover:border-blue-200 transition-all duration-300 flex flex-col justify-between">
       <div>
         {/* Header with avatar & details */}
         <div className="flex items-start gap-3.5 mb-3.5">
@@ -22,24 +24,28 @@ export const SellerCard: React.FC<SellerCardProps> = ({ seller, productCount }) 
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <h4 className="font-bold text-gray-900 truncate text-base hover:text-brand-600 transition">
+              <h4 className="font-bold text-gray-900 truncate text-base hover:text-blue-600 transition">
                 <Link to={`/seller/${seller.id}`}>{seller.store_name}</Link>
               </h4>
-              {seller.verification_status === 'approved' && (
+              {isVerified && (
                 <VerifiedBadge size="sm" showText={false} />
               )}
             </div>
 
             <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
               <span className="flex items-center gap-0.5 text-stone-800 font-semibold">
-                <MapPin className="w-3 h-3 text-brand-600" />
+                <MapPin className="w-3 h-3 text-blue-600" />
                 {seller.city}
               </span>
-              <span>•</span>
-              <span className="flex items-center gap-1 text-amber-600 font-semibold">
-                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                {seller.rating.toFixed(1)}
-              </span>
+              {seller.rating && seller.total_reviews ? (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 text-amber-600 font-semibold">
+                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                    {seller.rating.toFixed(1)} ({seller.total_reviews})
+                  </span>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
@@ -49,21 +55,19 @@ export const SellerCard: React.FC<SellerCardProps> = ({ seller, productCount }) 
           {seller.description}
         </p>
 
-        {/* Metrics */}
-        <div className="grid grid-cols-2 gap-2 p-2.5 bg-sand-50 rounded-2xl border border-sand-200/60 text-xs mb-4">
+        {/* Focus / Category Tag */}
+        <div className="flex items-center justify-between p-2.5 bg-sand-50 rounded-2xl border border-sand-200/60 text-xs mb-4">
           <div>
             <span className="text-stone-400 block text-[10px] uppercase font-bold">Category</span>
             <span className="font-semibold text-stone-800 truncate block">
-              {seller.category_focus || 'Handmade'}
+              {seller.category_focus || 'Handmade Crafts'}
             </span>
           </div>
-          <div>
-            <span className="text-stone-400 block text-[10px] uppercase font-bold">Completed</span>
-            <span className="font-semibold text-stone-800 flex items-center gap-1">
-              <PackageCheck className="w-3.5 h-3.5 text-emerald-600" />
-              {seller.completed_orders}+ orders
+          {isVerified && (
+            <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+              Verified Maker
             </span>
-          </div>
+          )}
         </div>
       </div>
 
@@ -78,3 +82,5 @@ export const SellerCard: React.FC<SellerCardProps> = ({ seller, productCount }) 
     </div>
   );
 };
+
+export default SellerCard;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, Lock, ArrowRight, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { SelluyLogo } from '../components/common/SelluyLogo';
 
 export const AdminLoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export const AdminLoginPage: React.FC = () => {
         </Link>
 
         <div className="space-y-2 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-stone-800 text-brand-400 flex items-center justify-center mx-auto border border-stone-700 shadow-inner">
+          <div className="w-14 h-14 rounded-2xl bg-stone-800 text-blue-400 flex items-center justify-center mx-auto border border-stone-700 shadow-inner">
             <ShieldCheck className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-black font-display tracking-tight text-white">
@@ -64,7 +65,7 @@ export const AdminLoginPage: React.FC = () => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl bg-stone-800 border border-stone-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-4 py-3 rounded-2xl bg-stone-800 border border-stone-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -77,19 +78,16 @@ export const AdminLoginPage: React.FC = () => {
                 placeholder="Enter admin security key..."
                 value={secretKey}
                 onChange={(e) => setSecretKey(e.target.value)}
-                className="w-full pl-4 pr-10 py-3 rounded-2xl bg-stone-800 border border-stone-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full pl-4 pr-10 py-3 rounded-2xl bg-stone-800 border border-stone-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <Lock className="w-4 h-4 text-stone-500 absolute right-3.5 top-1/2 -translate-y-1/2" />
             </div>
-            <p className="text-[11px] text-stone-500 mt-1">
-              Default passcode: <code className="text-amber-400 font-mono">selluy@admin2026</code>
-            </p>
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3.5 px-6 rounded-full bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2 mt-4"
+            className="w-full py-3.5 px-6 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2 mt-4"
           >
             {isSubmitting ? 'Authenticating...' : 'Unlock Admin Console'}
             <ArrowRight className="w-4 h-4" />
@@ -99,3 +97,5 @@ export const AdminLoginPage: React.FC = () => {
     </div>
   );
 };
+
+export default AdminLoginPage;

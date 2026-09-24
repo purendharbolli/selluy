@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-[#FAF9F6] text-gray-900 font-sans antialiased;
+    @apply bg-[#F8FAFC] text-[#111827] font-sans antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
@@ -15,14 +15,14 @@
   height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1ede4;
+  background: #f1f5f9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d4c8b6;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #f95738;
+  background: #2563eb;
 }
 
 /* Hide scrollbar for clean horizontal product scrollers */

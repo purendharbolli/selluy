@@ -38,7 +38,7 @@ export function App() {
       <LocationProvider>
         <AuthProvider>
           <CartProvider>
-            <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-stone-900 selection:bg-brand-100 selection:text-brand-900">
+            <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-[#111827] selection:bg-blue-100 selection:text-blue-900">
               <ScrollToTop />
               <Navbar />
 

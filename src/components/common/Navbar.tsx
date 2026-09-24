@@ -22,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { SelluyLogo } from './SelluyLogo';
 import { LocationModal } from './LocationModal';
 import { AuthModal } from '../auth/AuthModal';
+import { ProfileModal } from '../profile/ProfileModal';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 
@@ -36,6 +37,7 @@ export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,15 +120,7 @@ export const Navbar: React.FC = () => {
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   Admin Console
                 </Link>
-              ) : (
-                <Link
-                  to="/seller/onboarding"
-                  className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-full border border-sand-300 bg-sand-50 hover:bg-white text-stone-800 hover:border-blue-300 transition shadow-xs"
-                >
-                  <Store className="w-3.5 h-3.5 text-blue-600" />
-                  Become a Seller
-                </Link>
-              )}
+              ) : null}
 
               {/* Wishlist with motion */}
               <Link
@@ -172,11 +166,17 @@ export const Navbar: React.FC = () => {
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                     className="flex items-center gap-2 p-1.5 pr-2.5 rounded-full border border-sand-200 hover:border-sand-300 hover:bg-sand-50 transition cursor-pointer"
                   >
-                    <img
-                      src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
-                      alt={user.name}
-                      className="w-7 h-7 rounded-full object-cover"
-                    />
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-7 h-7 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-500 text-white flex items-center justify-center font-bold text-xs select-none shadow-2xs">
+                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                      </div>
+                    )}
                     <span className="text-xs font-bold text-stone-800 hidden md:inline truncate max-w-[100px]">
                       {user.name.split(' ')[0]}
                     </span>
@@ -190,15 +190,27 @@ export const Navbar: React.FC = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 5 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-sand-200 py-2 z-50"
+                        className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-sand-200 py-2 z-50 overflow-hidden"
                       >
-                        <div className="px-4 py-2 border-b border-sand-100">
+                        <div className="px-4 py-2.5 border-b border-sand-100 bg-sand-50/50">
                           <p className="text-xs font-bold text-stone-900 truncate">{user.name}</p>
                           <p className="text-[11px] text-stone-500 truncate">{user.phone || user.email}</p>
                           <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
                             {user.role} • {selectedCity}
                           </span>
                         </div>
+
+                        {/* Edit Profile Option */}
+                        <button
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            setIsProfileModalOpen(true);
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-stone-800 hover:bg-blue-50 hover:text-blue-700 text-left cursor-pointer transition border-b border-sand-100"
+                        >
+                          <UserIcon className="w-4 h-4 text-blue-600" />
+                          <span>Edit Profile</span>
+                        </button>
 
                         {role === 'seller' && (
                           <Link
@@ -261,10 +273,11 @@ export const Navbar: React.FC = () => {
               ) : (
                 <Button
                   onClick={() => setIsAuthModalOpen(true)}
-                  size="sm"
-                  className="shadow-xs"
+                  size="md"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-full shadow-md hover:shadow-lg transition text-xs sm:text-sm tracking-wide"
                 >
-                  Login
+                  <UserIcon className="w-4 h-4 mr-1.5" />
+                  Sign In
                 </Button>
               )}
 
@@ -335,14 +348,51 @@ export const Navbar: React.FC = () => {
               </div>
 
               <div className="pt-2">
-                <Link
-                  to="/seller/onboarding"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-2.5 rounded-full bg-sand-100 text-stone-900 font-bold text-xs flex items-center justify-center gap-1.5"
-                >
-                  <Store className="w-4 h-4 text-blue-600" />
-                  Become a Seller
-                </Link>
+                {isAuthenticated && user ? (
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setIsProfileModalOpen(true);
+                      }}
+                      className="w-full py-2.5 rounded-full bg-blue-50 text-blue-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <UserIcon className="w-4 h-4 text-blue-600" />
+                      Edit My Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full py-2.5 rounded-full bg-rose-50 text-rose-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setIsAuthModalOpen(true);
+                      }}
+                      size="md"
+                      className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-md"
+                    >
+                      <UserIcon className="w-4 h-4 mr-1.5" />
+                      Sign In / Register
+                    </Button>
+                    <Link
+                      to="/seller/onboarding"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block text-center text-xs text-stone-500 hover:text-stone-800 py-1"
+                    >
+                      Are you a seller? Apply here →
+                    </Link>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -357,6 +407,11 @@ export const Navbar: React.FC = () => {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
       />
     </>
   );

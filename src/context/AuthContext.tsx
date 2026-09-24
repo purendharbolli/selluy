@@ -29,7 +29,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_USER);
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      // Clean up legacy default unsplash stock photo so user starts with clean initials
+      if (parsed.avatar && parsed.avatar.includes('photo-1535713875002-d1d0cf377fde')) {
+        delete parsed.avatar;
+        localStorage.setItem(STORAGE_USER, JSON.stringify(parsed));
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -230,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           phone: `+91${cleanPhone}`,
           role: 'customer',
           city: '', // Prompts city onboarding
-          avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80`,
+          avatar: undefined,
           created_at: new Date().toISOString(),
         };
 

@@ -24,6 +24,9 @@ export interface User {
   phone?: string;
   role: UserRole;
   avatar?: string;
+  address?: string;
+  age?: number | string;
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say' | string;
   city?: string;
   city_id?: string;
   created_at: string;

@@ -220,21 +220,21 @@ export const Home: React.FC = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
-              <Link
-                to="/seller/onboarding"
-                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2"
-              >
-                <Store className="w-4 h-4" />
-                <span>Become a Seller</span>
-              </Link>
-
               <button
                 type="button"
                 onClick={() => setCity('All Cities')}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-sand-100 hover:bg-sand-200 text-stone-800 font-bold text-xs transition"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition"
               >
-                Explore Other Cities
+                Explore All Products
               </button>
+
+              <Link
+                to="/seller/onboarding"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-sand-100 hover:bg-sand-200 text-stone-700 font-bold text-xs transition flex items-center justify-center gap-2"
+              >
+                <Store className="w-4 h-4 text-stone-500" />
+                <span>Apply as Seller</span>
+              </Link>
             </div>
           </div>
         )}

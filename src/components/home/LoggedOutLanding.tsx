@@ -17,6 +17,7 @@ import {
   Clock,
   Search,
   Tag,
+  User as UserIcon,
 } from 'lucide-react';
 import { useLocation } from '../../context/LocationContext';
 import { useAuth } from '../../context/AuthContext';
@@ -126,7 +127,7 @@ export const LoggedOutLanding: React.FC = () => {
                 Explore products from local sellers, discover something new, and shop directly from your city.
               </motion.p>
 
-              {/* Primary & Secondary CTAs with Commerce Energy */}
+              {/* Primary & Secondary CTAs with Commerce Energy: Instant Sign In Highlight */}
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -134,23 +135,40 @@ export const LoggedOutLanding: React.FC = () => {
                 className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-2"
               >
                 <Button
-                  onClick={handleStartShopping}
+                  onClick={() => setIsAuthModalOpen(true)}
                   size="lg"
-                  className="w-full sm:w-auto px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-md hover:shadow-lg transition group"
+                  className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-lg hover:shadow-xl transition group text-base tracking-wide flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span>Start Shopping</span>
-                  <ArrowRight className="w-4 h-4 ml-1.5 group-hover:translate-x-1 transition" />
+                  <UserIcon className="w-5 h-5 text-amber-300" />
+                  <span>Sign In / Join Selluy</span>
+                  <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition" />
                 </Button>
 
-                <Link to="/seller/onboarding" className="w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="w-full sm:w-auto px-7 py-3.5 bg-white text-stone-800 hover:bg-sand-50 rounded-2xl border border-sand-300 shadow-2xs font-semibold hover:border-amber-400 transition"
-                  >
-                    <Store className="w-4 h-4 text-blue-600 mr-1.5" />
-                    <span>Become a Seller</span>
-                  </Button>
+                <Button
+                  onClick={handleStartShopping}
+                  variant="outline"
+                  size="lg"
+                  className="w-full sm:w-auto px-7 py-4 bg-white text-stone-900 hover:bg-sand-50 rounded-2xl border border-sand-300 shadow-2xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Compass className="w-4 h-4 text-blue-600" />
+                  <span>Explore Marketplace</span>
+                </Button>
+              </motion.div>
+
+              {/* Discreet Seller Prompt */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.45 }}
+                className="pt-1 text-center lg:text-left"
+              >
+                <Link
+                  to="/seller/onboarding"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-500 hover:text-stone-900 transition"
+                >
+                  <Store className="w-3.5 h-3.5 text-stone-400" />
+                  <span>Are you a local creator or merchant?</span>
+                  <span className="text-blue-600 font-bold underline decoration-blue-300">Apply to sell →</span>
                 </Link>
               </motion.div>
 
@@ -494,10 +512,10 @@ export const LoggedOutLanding: React.FC = () => {
             </p>
           </div>
           <Link
-            to="/seller/onboarding"
+            to="/explore"
             className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group transition"
           >
-            <span>Become a Seller</span>
+            <span>Explore All Sellers</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
           </Link>
         </div>

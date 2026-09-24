@@ -45,7 +45,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({ isOpen, onClose })
               </div>
               <div>
                 <h3 className="text-lg font-black text-stone-950 font-display">Select Your City</h3>
-                <p className="text-xs text-stone-500">Discover direct from verified local creators</p>
+                <p className="text-xs text-stone-500">Discover direct from verified local sellers</p>
               </div>
             </div>
             <button
@@ -87,7 +87,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({ isOpen, onClose })
 
           <div className="mt-6 pt-4 border-t border-sand-100 text-center">
             <p className="text-xs text-stone-500">
-              More cities are joining every week! You can still explore and order from creators nationwide.
+              More cities are joining every week. Discover products and verified sellers across India.
             </p>
           </div>
         </motion.div>

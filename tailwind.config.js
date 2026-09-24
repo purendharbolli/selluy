@@ -42,6 +42,12 @@ export default {
           100: '#dcfce7',
           600: '#16a34a',
           700: '#15803d',
+        },
+        commerce: {
+          yellow: '#FACC15', // Primary energetic yellow accent #FACC15
+          yellowLight: '#FEF08A',
+          yellowSurface: '#FEFCE8',
+          yellowDark: '#CA8A04',
         }
       },
       fontFamily: {

@@ -93,14 +93,14 @@ export const Home: React.FC = () => {
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-stone-950 font-display max-w-3xl mx-auto leading-tight">
-            Discover verified indie makers in{' '}
+            Discover verified local sellers in{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
               {selectedCity}
             </span>
           </h1>
 
           <p className="mt-3 text-sm sm:text-base text-stone-600 max-w-xl mx-auto font-normal">
-            Direct orders from approved local creators. Verified authentic, shipped directly from studio to doorstep.
+            Direct orders from approved local sellers and small businesses. Verified authentic, shipped directly to your doorstep.
           </p>
 
           {/* Search Bar */}
@@ -216,7 +216,7 @@ export const Home: React.FC = () => {
               Nothing here yet
             </h3>
             <p className="text-xs sm:text-sm text-stone-600 mt-2 max-w-md mx-auto leading-relaxed">
-              We&apos;re bringing verified local sellers to {selectedCity}. Become an early creator or explore approved products across other cities.
+              We&apos;re bringing verified local sellers to {selectedCity}. Become an early seller or explore products across other cities.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
@@ -240,20 +240,20 @@ export const Home: React.FC = () => {
         )}
       </section>
 
-      {/* 4. VERIFIED STUDIOS SPOTLIGHT */}
+      {/* 4. VERIFIED LOCAL SELLERS SPOTLIGHT */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-blue-50/40 rounded-4xl p-6 sm:p-10 border border-blue-100">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-bold text-xs mb-2">
                 <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                Local Indie Spotlight: {selectedCity}
+                Local Seller Network: {selectedCity}
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-stone-950 font-display">
-                Independent Studios Around You
+                Local Sellers Around You
               </h2>
               <p className="text-xs sm:text-sm text-stone-600 mt-1">
-                Skip anonymous mass production. Support genuine verified creators working in your city.
+                Skip anonymous mass production. Support verified small businesses and local sellers working in your city.
               </p>
             </div>
 
@@ -275,10 +275,10 @@ export const Home: React.FC = () => {
             <div className="bg-white rounded-3xl p-8 text-center border border-sand-200">
               <Store className="w-10 h-10 text-stone-400 mx-auto mb-3" />
               <h4 className="text-base font-bold text-stone-900">
-                No onboarded creators found in {selectedCity} yet
+                No onboarded local sellers found in {selectedCity} yet
               </h4>
               <p className="text-xs text-stone-500 max-w-md mx-auto mt-1 mb-4">
-                Be the first independent brand to launch in {selectedCity} or explore creators across all cities.
+                Be the first local seller to launch in {selectedCity} or explore sellers across all cities.
               </p>
               <div className="flex justify-center gap-3">
                 <button

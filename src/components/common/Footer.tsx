@@ -14,7 +14,7 @@ export const Footer: React.FC = () => {
               <SelluyLogo variant="full" size="md" theme="dark" />
             </Link>
             <p className="text-sm text-stone-400 leading-relaxed max-w-sm">
-              Discover local. Buy direct. The local-first marketplace empowering verified independent creators, handmade studios, and local artisans across India.
+              Discover local. Buy direct. The local-first marketplace empowering verified independent small businesses and local sellers across India.
             </p>
             <div className="flex items-center gap-3 pt-2 text-xs text-stone-400">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-800 border border-stone-700">

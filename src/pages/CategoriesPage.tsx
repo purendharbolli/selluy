@@ -18,7 +18,7 @@ export const CategoriesPage: React.FC = () => {
           All Marketplace Categories
         </h1>
         <p className="text-stone-600 text-sm mt-1">
-          Explore verified independent Indian creators organized by craftsmanship and category.
+          Explore products from verified local sellers and small businesses organized by category.
         </p>
       </div>
 

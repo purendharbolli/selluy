@@ -195,14 +195,20 @@ export default async function handler(req, res) {
 
     // Format human-friendly error explanation from Fast2SMS response
     const rawMsg = typeof lastGatewayError === 'string' ? lastGatewayError : JSON.stringify(lastGatewayError || 'Unknown gateway error');
+    // Check specific Fast2SMS error conditions
+    const qMessage = typeof attemptLogs.qPost?.message === 'string' ? attemptLogs.qPost.message : '';
+    const otpMessage = typeof attemptLogs.otpPost?.message === 'string' ? attemptLogs.otpPost.message : '';
+
     let friendlyError = rawMsg;
 
-    if (rawMsg.toLowerCase().includes('website verification')) {
-      friendlyError = 'Fast2SMS notice: Website verification required. In your Fast2SMS dashboard, go to Dev API / OTP Message and enter https://selluy.vercel.app, or recharge wallet.';
+    if (qMessage.includes('100 INR') || rawMsg.includes('100 INR')) {
+      friendlyError = 'Fast2SMS Notice: Fast2SMS requires a one-time wallet recharge of ₹100 before activating API SMS dispatch. Please log in to fast2sms.com and add ₹100 to your wallet.';
+    } else if (otpMessage.toLowerCase().includes('website verification') || rawMsg.toLowerCase().includes('website verification')) {
+      friendlyError = 'Fast2SMS Notice: Website verification required. In your Fast2SMS dashboard (fast2sms.com), open the "OTP Message" menu and add https://selluy.vercel.app.';
     } else if (rawMsg.toLowerCase().includes('balance') || rawMsg.toLowerCase().includes('insufficient')) {
-      friendlyError = 'Fast2SMS notice: Insufficient wallet balance. Please recharge ₹10–₹50 in your Fast2SMS dashboard to send SMS.';
+      friendlyError = 'Fast2SMS Notice: Insufficient wallet balance. Please recharge ₹10–₹50 in your Fast2SMS dashboard.';
     } else if (rawMsg.toLowerCase().includes('authorization') || rawMsg.toLowerCase().includes('key') || rawMsg.toLowerCase().includes('invalid')) {
-      friendlyError = 'Fast2SMS notice: Invalid API authorization key. Please verify FAST2SMS_API_KEY in Vercel settings.';
+      friendlyError = 'Fast2SMS Notice: Invalid API authorization key. Please verify FAST2SMS_API_KEY in Vercel settings.';
     }
 
     console.error('Fast2SMS dispatch failed:', { rawMsg, cleanPhone, attemptLogs });

@@ -11,7 +11,9 @@ export interface AuthContextType {
   isAdminAuthenticated: boolean;
   needsCityOnboarding: boolean;
   sendOtp: (phone: string) => Promise<{ success: boolean; isNewUser: boolean; error?: string }>;
-  verifyOtp: (phone: string, token: string) => Promise<{ success: boolean; user?: User; error?: string }>;
+  verifyOtp: (phone: string, token: string) => Promise<{ success: boolean; user?: User; isNewUser?: boolean; error?: string }>;
+  setPassword: (password: string, phone?: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithPassword: (phone: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   resendOtp: (phone: string) => Promise<boolean>;
   completeCityOnboarding: (city: string) => Promise<void>;
   adminLogin: (email: string, secretKey: string) => Promise<boolean>;
@@ -143,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const verifyOtp = async (
     phone: string,
     token: string
-  ): Promise<{ success: boolean; user?: User; error?: string }> => {
+  ): Promise<{ success: boolean; user?: User; isNewUser?: boolean; error?: string }> => {
     const cleanPhone = phone.replace(/\D/g, '');
     const cleanToken = token.trim();
 
@@ -258,9 +260,149 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setNeedsCityOnboarding(true);
       }
 
-      return { success: true, user: activeUser };
+      return { success: true, user: activeUser, isNewUser: isNew };
     } catch (err: any) {
       return { success: false, error: err.message || 'OTP verification failed. Please try again.' };
+    }
+  };
+
+  // Configure or update user password
+  const setPassword = async (
+    password: string,
+    targetPhone?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const rawPhone = targetPhone || (user?.phone ? user.phone : '');
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+
+    if (cleanPhone.length !== 10) {
+      return { success: false, error: 'Mobile number not found. Please log in first.' };
+    }
+
+    try {
+      const res = await fetch('/api/set-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone, password }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        if (data.password_hash) {
+          try {
+            localStorage.setItem(`selluy_pwd_${cleanPhone}`, data.password_hash);
+          } catch (e) {
+            // Ignore storage error
+          }
+        }
+
+        if (user) {
+          const updated: User = {
+            ...user,
+            password_configured: true,
+            password_hash: data.password_hash || user.password_hash,
+            updated_at: new Date().toISOString(),
+          };
+          setUser(updated);
+          localStorage.setItem(STORAGE_USER, JSON.stringify(updated));
+
+          if (isSupabaseConfigured()) {
+            try {
+              await supabase
+                .from('users')
+                .update({ password_configured: true, password_hash: data.password_hash })
+                .eq('id', user.id);
+            } catch (err) {
+              console.warn('Supabase password state notice:', err);
+            }
+          }
+        }
+
+        return { success: true };
+      }
+
+      return { success: false, error: data.error || 'Failed to set password.' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error configuring password.' };
+    }
+  };
+
+  // Direct login with mobile number + password
+  const loginWithPassword = async (
+    phone: string,
+    password: string
+  ): Promise<{ success: boolean; user?: User; error?: string }> => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      return { success: false, error: 'Please enter a valid 10-digit Indian mobile number.' };
+    }
+
+    try {
+      let storedHash = '';
+      try {
+        storedHash = localStorage.getItem(`selluy_pwd_${cleanPhone}`) || '';
+      } catch (e) {
+        // Ignore storage error
+      }
+
+      const res = await fetch('/api/login-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone, password, storedHash }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        let verifiedUserId = `usr_${cleanPhone}`;
+        let existingUser: User | null = null;
+
+        const saved = localStorage.getItem(STORAGE_USER);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed.phone && parsed.phone.includes(cleanPhone)) {
+              existingUser = parsed;
+            }
+          } catch (e) {
+            // Ignore
+          }
+        }
+
+        if (!existingUser && isSupabaseConfigured()) {
+          try {
+            const { data: supaUser } = await supabase
+              .from('users')
+              .select('*')
+              .eq('phone', `+91${cleanPhone}`)
+              .maybeSingle();
+            if (supaUser) existingUser = supaUser as User;
+          } catch (e) {
+            console.warn('Supabase lookup notice:', e);
+          }
+        }
+
+        const activeUser: User = existingUser || {
+          id: verifiedUserId,
+          name: `User ${cleanPhone.slice(-4)}`,
+          phone: `+91${cleanPhone}`,
+          role: 'customer',
+          city: 'Hyderabad',
+          password_configured: true,
+          created_at: new Date().toISOString(),
+        };
+
+        activeUser.password_configured = true;
+        setUser(activeUser);
+        localStorage.setItem(STORAGE_USER, JSON.stringify(activeUser));
+
+        return { success: true, user: activeUser };
+      }
+
+      return {
+        success: false,
+        error: data.error || 'Incorrect password. Please try again or log in with SMS OTP.',
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error during password login.' };
     }
   };
 
@@ -362,6 +504,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         needsCityOnboarding,
         sendOtp,
         verifyOtp,
+        setPassword,
+        loginWithPassword,
         resendOtp,
         completeCityOnboarding,
         adminLogin,

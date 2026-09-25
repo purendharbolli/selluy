@@ -19,6 +19,15 @@ import {
   PauseCircle,
   PlayCircle,
   Truck,
+  Lock,
+  Eye,
+  Instagram,
+  Globe,
+  Check,
+  AlertCircle,
+  X,
+  FileText,
+  Save,
 } from 'lucide-react';
 import { marketplaceService } from '../services/marketplaceService';
 import { SellerProfile, Product, Category, SellerApplication, Order } from '../types';
@@ -38,6 +47,14 @@ export const AdminDashboardPage: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>(marketplaceService.getCategories());
 
   const [toastMsg, setToastMsg] = useState('');
+
+  // Seller Application Review Modal State
+  const [selectedApp, setSelectedApp] = useState<SellerApplication | null>(null);
+  const [adminNotes, setAdminNotes] = useState('');
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [rejectModalApp, setRejectModalApp] = useState<SellerApplication | null>(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState('');
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
   const refreshAdminData = () => {
     setApplications([...marketplaceService.getApplications()]);
@@ -59,7 +76,9 @@ export const AdminDashboardPage: React.FC = () => {
   };
 
   // Metrics (Strictly Real Database Data)
-  const pendingApplications = applications.filter((a) => a.status === 'pending');
+  const pendingApplications = applications.filter(
+    (a) => a.status === 'pending' || a.status === 'under_review' || a.status === 'submitted'
+  );
   const approvedApplications = applications.filter((a) => a.status === 'approved');
   const verifiedSellersCount = sellers.filter((s) => s.verification_status === 'approved' || (s.verification_status as string) === 'verified').length;
   const pendingProducts = products.filter((p) => p.status === 'pending_approval');
@@ -68,22 +87,45 @@ export const AdminDashboardPage: React.FC = () => {
   const totalGMV = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
 
   // Actions
-  const handleApproveSeller = async (appId: string) => {
+  const handleApproveSeller = async (appId: string, notes?: string) => {
     try {
-      await marketplaceService.adminApproveSeller(appId);
+      await marketplaceService.adminApproveSeller(appId, notes);
       refreshAdminData();
+      if (selectedApp && selectedApp.id === appId) {
+        setSelectedApp((prev) => (prev ? { ...prev, status: 'approved', internal_notes: notes } : null));
+      }
       showToast('Seller application approved! Seller is now verified.');
     } catch (err: any) {
       alert(err.message || 'Failed to approve seller');
     }
   };
 
-  const handleRejectSeller = async (appId: string) => {
-    const reason = prompt('Please enter an internal rejection reason:');
-    if (reason !== null) {
-      await marketplaceService.adminRejectSeller(appId, reason || 'Application requirements not met.');
+  const handleRejectSeller = async (appId: string, reason: string, notes?: string) => {
+    try {
+      await marketplaceService.adminRejectSeller(appId, reason || 'Application requirements not met.', notes);
       refreshAdminData();
-      showToast('Seller application rejected.');
+      if (selectedApp && selectedApp.id === appId) {
+        setSelectedApp((prev) => (prev ? { ...prev, status: 'rejected', rejection_reason: reason, internal_notes: notes } : null));
+      }
+      showToast('Seller application marked as rejected.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to reject seller');
+    }
+  };
+
+  const handleSaveNotes = async (appId: string) => {
+    setIsSavingNotes(true);
+    try {
+      await marketplaceService.updateSellerApplication(appId, { internal_notes: adminNotes });
+      refreshAdminData();
+      if (selectedApp && selectedApp.id === appId) {
+        setSelectedApp((prev) => (prev ? { ...prev, internal_notes: adminNotes } : null));
+      }
+      showToast('Internal notes saved successfully.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to save notes');
+    } finally {
+      setIsSavingNotes(false);
     }
   };
 
@@ -301,8 +343,11 @@ export const AdminDashboardPage: React.FC = () => {
                         }
                         size="sm"
                       >
-                        {app.status}
+                        {app.status.replace('_', ' ')}
                       </Badge>
+                      <span className="text-[11px] text-stone-400 font-mono">
+                        {app.id}
+                      </span>
                     </div>
 
                     <p className="text-xs text-stone-600">
@@ -313,32 +358,41 @@ export const AdminDashboardPage: React.FC = () => {
                       {app.description}
                     </p>
 
-                    {app.documents?.craft_samples && app.documents.craft_samples.length > 0 && (
-                      <div className="flex items-center gap-2 pt-1">
-                        <span className="text-[11px] font-semibold text-stone-400">Samples:</span>
-                        {app.documents.craft_samples.map((url, i) => (
-                          <a
-                            key={i}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] text-blue-600 hover:underline flex items-center gap-0.5 font-bold"
-                          >
-                            Sample {i + 1} <ExternalLink className="w-3 h-3" />
-                          </a>
-                        ))}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3 pt-1 text-xs">
+                      <span className="text-[11px] font-semibold text-stone-400">Category: <strong className="text-stone-700">{app.category}</strong></span>
+                      {(app.product_samples?.length || app.documents?.craft_samples?.length) ? (
+                        <span className="text-[11px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full font-bold">
+                          {(app.product_samples?.length || app.documents?.craft_samples?.length)} Samples Attached
+                        </span>
+                      ) : null}
+                      {(app.government_id_front || app.documents?.government_id_front) ? (
+                        <span className="text-[11px] text-stone-600 bg-sand-100 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" /> ID Attached
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setSelectedApp(app);
+                        setAdminNotes(app.internal_notes || '');
+                      }}
+                      className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1" />
+                      Review Details
+                    </Button>
+
                     {app.status !== 'approved' && (
                       <Button
                         size="sm"
-                        onClick={() => handleApproveSeller(app.id)}
+                        onClick={() => handleApproveSeller(app.id, app.internal_notes)}
                         className="bg-emerald-600 hover:bg-emerald-500 text-white"
                       >
-                        Approve Seller
+                        Approve
                       </Button>
                     )}
 
@@ -346,7 +400,10 @@ export const AdminDashboardPage: React.FC = () => {
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => handleRejectSeller(app.id)}
+                        onClick={() => {
+                          setRejectModalApp(app);
+                          setRejectReasonInput('');
+                        }}
                         className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 shadow-none"
                       >
                         Reject
@@ -612,6 +669,405 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </motion.div>
       )}
+
+      {/* 1. SELLER APPLICATION REVIEW MODAL */}
+      <AnimatePresence>
+        {selectedApp && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedApp(null)}
+              className="fixed inset-0 bg-stone-950/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+              className="relative bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-sand-200 overflow-hidden z-10 my-8 max-h-[90vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between pb-4 border-b border-sand-200 shrink-0">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-black text-stone-950 font-display">
+                      {selectedApp.store_name}
+                    </h3>
+                    <Badge
+                      variant={
+                        selectedApp.status === 'approved'
+                          ? 'success'
+                          : selectedApp.status === 'rejected'
+                          ? 'destructive'
+                          : 'warning'
+                      }
+                      size="sm"
+                    >
+                      {selectedApp.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Application ID: <span className="font-mono font-bold text-stone-700">{selectedApp.id}</span> • Submitted: {new Date(selectedApp.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setSelectedApp(null)}
+                  className="w-8 h-8 rounded-full bg-sand-100 hover:bg-sand-200 text-stone-500 hover:text-stone-900 flex items-center justify-center transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="space-y-5 overflow-y-auto py-4 pr-1 flex-1">
+                {/* Section 1: Applicant & Studio Details */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-sand-50/80 border border-sand-200 space-y-2 text-xs">
+                    <span className="font-extrabold text-stone-900 uppercase tracking-wider block">
+                      Applicant Information
+                    </span>
+                    <div className="space-y-1">
+                      <div><span className="text-stone-500">Legal Name:</span> <strong className="text-stone-900">{selectedApp.full_name}</strong></div>
+                      <div><span className="text-stone-500">Phone:</span> <strong className="text-stone-900">{selectedApp.phone}</strong></div>
+                      <div><span className="text-stone-500">Email:</span> <strong className="text-stone-900">{selectedApp.email || 'None provided'}</strong></div>
+                      <div><span className="text-stone-500">Base City:</span> <strong className="text-stone-900">{selectedApp.city}</strong> {selectedApp.area ? `(${selectedApp.area})` : ''}</div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-sand-50/80 border border-sand-200 space-y-2 text-xs">
+                    <span className="font-extrabold text-stone-900 uppercase tracking-wider block">
+                      Store &amp; Online Links
+                    </span>
+                    <div className="space-y-1">
+                      <div><span className="text-stone-500">Seller Type:</span> <strong className="text-stone-900 capitalize">{selectedApp.seller_type.replace('_', ' ')}</strong></div>
+                      <div><span className="text-stone-500">Primary Category:</span> <strong className="text-stone-900">{selectedApp.category}</strong></div>
+                      {selectedApp.social_media_url ? (
+                        <div className="flex items-center gap-1">
+                          <Instagram className="w-3 h-3 text-pink-600 shrink-0" />
+                          <a href={selectedApp.social_media_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-bold truncate">
+                            {selectedApp.social_media_url}
+                          </a>
+                        </div>
+                      ) : (
+                        <div><span className="text-stone-500">Social Media:</span> <span className="text-stone-400">None linked</span></div>
+                      )}
+                      {selectedApp.website_url ? (
+                        <div className="flex items-center gap-1">
+                          <Globe className="w-3 h-3 text-blue-600 shrink-0" />
+                          <a href={selectedApp.website_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-bold truncate">
+                            {selectedApp.website_url}
+                          </a>
+                        </div>
+                      ) : (
+                        <div><span className="text-stone-500">Website:</span> <span className="text-stone-400">None linked</span></div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Store Description */}
+                <div className="p-4 rounded-2xl bg-sand-50/60 border border-sand-200 text-xs space-y-1">
+                  <span className="font-extrabold text-stone-900 uppercase tracking-wider block">
+                    Store Bio &amp; Craftsmanship
+                  </span>
+                  <p className="text-stone-700 leading-relaxed whitespace-pre-wrap">
+                    {selectedApp.description}
+                  </p>
+                </div>
+
+                {/* Section 3: Craftsmanship & Product Samples */}
+                <div className="p-4 rounded-2xl bg-sand-50/60 border border-sand-200 space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-extrabold text-stone-900 uppercase tracking-wider block">
+                      Craft &amp; Product Samples ({(selectedApp.product_samples || selectedApp.documents?.craft_samples || []).length} photos)
+                    </span>
+                    <span className="text-stone-500">
+                      Craft: <strong>{selectedApp.craft_type || 'Artisan Handcrafted'}</strong>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                    {(selectedApp.product_samples || selectedApp.documents?.craft_samples || []).map((url, i) => (
+                      <div
+                        key={i}
+                        onClick={() => setPreviewPhoto(url)}
+                        className="relative rounded-xl overflow-hidden border border-sand-300 aspect-square group cursor-pointer shadow-xs bg-sand-100"
+                      >
+                        <img src={url} alt={`Sample ${i + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                        <div className="absolute inset-0 bg-stone-950/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                          <Eye className="w-4 h-4" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section 4: Protected Verification Documents & Dispatch Address */}
+                <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-950 uppercase tracking-wider">
+                      <Lock className="w-3.5 h-3.5 text-amber-700" />
+                      Confidential Government Identity &amp; Dispatch Address
+                    </div>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                      Admin Confidential View
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* ID Front */}
+                    <div>
+                      <span className="text-xs font-bold text-stone-700 block mb-1">
+                        {selectedApp.verification_id_type === 'voter_id' ? 'Voter ID Front' : 'Aadhaar Card Front'}
+                      </span>
+                      {(selectedApp.government_id_front || selectedApp.documents?.government_id_front) ? (
+                        <div
+                          onClick={() => setPreviewPhoto(selectedApp.government_id_front || selectedApp.documents?.government_id_front || null)}
+                          className="relative rounded-xl overflow-hidden border border-sand-300 aspect-[16/10] group cursor-pointer bg-white"
+                        >
+                          <img
+                            src={selectedApp.government_id_front || selectedApp.documents?.government_id_front}
+                            alt="Government ID Front"
+                            className="w-full h-full object-cover group-hover:scale-102 transition"
+                          />
+                          <div className="absolute inset-0 bg-stone-950/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white gap-1 text-xs font-bold">
+                            <Eye className="w-4 h-4" /> Click to Inspect
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-4 rounded-xl bg-sand-100 text-stone-400 text-xs text-center">
+                          No front ID uploaded
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ID Back */}
+                    <div>
+                      <span className="text-xs font-bold text-stone-700 block mb-1">
+                        Document Back (Address Side)
+                      </span>
+                      {(selectedApp.government_id_back || selectedApp.documents?.government_id_back) ? (
+                        <div
+                          onClick={() => setPreviewPhoto(selectedApp.government_id_back || selectedApp.documents?.government_id_back || null)}
+                          className="relative rounded-xl overflow-hidden border border-sand-300 aspect-[16/10] group cursor-pointer bg-white"
+                        >
+                          <img
+                            src={selectedApp.government_id_back || selectedApp.documents?.government_id_back}
+                            alt="Government ID Back"
+                            className="w-full h-full object-cover group-hover:scale-102 transition"
+                          />
+                          <div className="absolute inset-0 bg-stone-950/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white gap-1 text-xs font-bold">
+                            <Eye className="w-4 h-4" /> Click to Inspect
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-4 rounded-xl bg-sand-100 text-stone-400 text-xs text-center">
+                          No back ID uploaded
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-amber-200/60 text-xs space-y-1">
+                    <span className="text-stone-500 font-bold block">Order Dispatch &amp; Pickup Address:</span>
+                    <p className="text-stone-800 font-medium">
+                      {selectedApp.business_address || 'Not specified'}
+                    </p>
+                    <p className="text-stone-600">
+                      State: <strong>{selectedApp.state || 'Telangana'}</strong> • PIN Code: <strong>{selectedApp.pincode || 'Not specified'}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Section 5: Internal Admin Notes */}
+                <div className="p-4 rounded-2xl bg-sand-50 border border-sand-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-stone-900 uppercase tracking-wider block">
+                      Internal Admin Notes &amp; Verification Audit
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveNotes(selectedApp.id)}
+                      disabled={isSavingNotes}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      {isSavingNotes ? 'Saving...' : 'Save Notes'}
+                    </button>
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={adminNotes}
+                    onChange={(e) => setAdminNotes(e.target.value)}
+                    placeholder="Enter private admin verification notes (e.g., Verified phone and Instagram; genuine local artisan)..."
+                    className="w-full px-3 py-2 rounded-xl border border-sand-300 text-xs focus:ring-2 focus:ring-blue-500 bg-white resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="pt-4 border-t border-sand-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedApp(null)}
+                >
+                  Close
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  {selectedApp.status !== 'approved' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleApproveSeller(selectedApp.id, adminNotes)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-md font-bold"
+                    >
+                      <Check className="w-3.5 h-3.5 mr-1" />
+                      Approve as Verified Seller
+                    </Button>
+                  )}
+
+                  {selectedApp.status !== 'rejected' && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        setRejectModalApp(selectedApp);
+                        setRejectReasonInput('');
+                      }}
+                      className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 shadow-none font-bold"
+                    >
+                      Reject Application
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 2. REJECTION REASON MODAL */}
+      <AnimatePresence>
+        {rejectModalApp && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setRejectModalApp(null)}
+              className="fixed inset-0 bg-stone-950/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-sand-200 z-10 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-sand-100">
+                <h4 className="text-base font-extrabold text-stone-900">
+                  Reject Application: {rejectModalApp.store_name}
+                </h4>
+                <button
+                  onClick={() => setRejectModalApp(null)}
+                  className="w-7 h-7 rounded-full bg-sand-100 hover:bg-sand-200 text-stone-500 flex items-center justify-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <p className="text-xs text-stone-600">
+                Specify the reason for rejection. This feedback will be displayed to the applicant so they can revise and resubmit:
+              </p>
+
+              {/* Quick Reason Chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'Insufficient or low-quality product photos',
+                  'Government ID proof is not clearly legible',
+                  'Reseller or dropshipped items not permitted',
+                  'Incomplete studio dispatch pickup address',
+                ].map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setRejectReasonInput(reason)}
+                    className="text-[10px] px-2.5 py-1 rounded-full bg-sand-100 hover:bg-blue-50 hover:text-blue-700 text-stone-700 font-medium transition cursor-pointer"
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                rows={3}
+                required
+                value={rejectReasonInput}
+                onChange={(e) => setRejectReasonInput(e.target.value)}
+                placeholder="Enter detailed rejection explanation..."
+                className="w-full px-3 py-2 rounded-xl border border-sand-300 text-xs focus:ring-2 focus:ring-rose-500 resize-none"
+              />
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-sand-100">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRejectModalApp(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={!rejectReasonInput.trim()}
+                  onClick={() => {
+                    handleRejectSeller(rejectModalApp.id, rejectReasonInput.trim(), adminNotes);
+                    setRejectModalApp(null);
+                  }}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+                >
+                  Confirm Rejection
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 3. LIGHTBOX IMAGE PREVIEW */}
+      <AnimatePresence>
+        {previewPhoto && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/80 backdrop-blur-md cursor-pointer"
+            onClick={() => setPreviewPhoto(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="relative max-w-4xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-black"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={previewPhoto}
+                alt="Document preview"
+                className="w-full h-full object-contain max-h-[80vh]"
+              />
+              <button
+                onClick={() => setPreviewPhoto(null)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-stone-900/80 text-white hover:bg-stone-900 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

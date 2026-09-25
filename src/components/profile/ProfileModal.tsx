@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -13,9 +14,20 @@ import {
   AlertCircle,
   Save,
   ShieldCheck,
+  KeyRound,
+  Store,
+  Clock,
+  Eye,
+  EyeOff,
+  Check,
+  RefreshCw,
+  ExternalLink,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLocation } from '../../context/LocationContext';
+import { marketplaceService } from '../../services/marketplaceService';
+import { SellerApplication } from '../../types';
 import { Button } from '../ui/Button';
 
 export interface ProfileModalProps {
@@ -24,9 +36,13 @@ export interface ProfileModalProps {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-  const { user, updateUser } = useAuth();
+  const navigate = useNavigate();
+  const { user, updateUser, sendOtp, verifyOtp, setPassword } = useAuth();
   const { availableCities } = useLocation();
 
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'seller'>('profile');
+
+  // Profile Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
@@ -37,6 +53,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
   const [isLoading, setIsLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Password / Security State
+  // Mode: 'idle' | 'request_otp' | 'verify_otp' | 'enter_password' | 'password_success'
+  const [securityStep, setSecurityStep] = useState<'idle' | 'verify_otp' | 'enter_password'>('idle');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSettingPassword, setIsSettingPassword] = useState(false);
+  const [securityFeedback, setSecurityFeedback] = useState<{ type: 'error' | 'success'; msg: string } | null>(null);
+
+  // Seller App State
+  const [sellerApp, setSellerApp] = useState<SellerApplication | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,8 +83,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
       setAvatar(user.avatar || undefined);
       setSuccessMsg('');
       setErrorMsg('');
+      setSecurityStep('idle');
+      setOtpCode('');
+      setNewPassword('');
+      setSecurityFeedback(null);
+
+      // Fetch seller application
+      const app = marketplaceService.getApplicationByUserId(user.id);
+      setSellerApp(app || null);
     }
   }, [isOpen, user]);
+
+  // Resend countdown timer
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const interval = setInterval(() => {
+      setResendTimer((t) => t - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   // Close on Escape key
   useEffect(() => {
@@ -65,6 +113,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  // Password rules validation
+  const hasMinLength = newPassword.length >= 6;
+  const hasLetter = /[a-zA-Z]/.test(newPassword);
+  const hasNumber = /\d/.test(newPassword);
+  const hasSpecial = /[@$!%*?&#^()_+\-=[\]{};':"\\|,.<>/?]/.test(newPassword);
+  const isPasswordValid = hasMinLength && hasLetter && hasNumber && hasSpecial;
 
   // Handle image upload from file picker
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,7 +155,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
   };
 
   // Submit profile updates
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setErrorMsg('Please enter your full name.');
@@ -136,13 +191,122 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
     }
   };
 
+  // Security: Trigger OTP to user's verified phone
+  const handleStartPasswordSetup = async () => {
+    if (!user?.phone) {
+      setSecurityFeedback({ type: 'error', msg: 'Mobile number not linked to account.' });
+      return;
+    }
+
+    setOtpSending(true);
+    setSecurityFeedback(null);
+    try {
+      const res = await sendOtp(user.phone);
+      if (res.success) {
+        setSecurityStep('verify_otp');
+        setResendTimer(30);
+        setSecurityFeedback({
+          type: 'success',
+          msg: `Verification code sent to ${user.phone}.`,
+        });
+      } else {
+        setSecurityFeedback({ type: 'error', msg: res.error || 'Failed to send OTP code.' });
+      }
+    } catch (err: any) {
+      setSecurityFeedback({ type: 'error', msg: err.message || 'SMS gateway error.' });
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  // Security: Resend OTP
+  const handleResendOtp = async () => {
+    if (!user?.phone || resendTimer > 0) return;
+    setOtpSending(true);
+    try {
+      const res = await sendOtp(user.phone);
+      if (res.success) {
+        setResendTimer(30);
+        setSecurityFeedback({
+          type: 'success',
+          msg: `New verification code sent to ${user.phone}.`,
+        });
+      } else {
+        setSecurityFeedback({ type: 'error', msg: res.error || 'Failed to resend OTP.' });
+      }
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  // Security: Verify OTP
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.phone || otpCode.trim().length !== 6) {
+      setSecurityFeedback({ type: 'error', msg: 'Please enter the 6-digit code sent to your phone.' });
+      return;
+    }
+
+    setOtpVerifying(true);
+    setSecurityFeedback(null);
+    try {
+      const res = await verifyOtp(user.phone, otpCode.trim());
+      if (res.success) {
+        setSecurityStep('enter_password');
+        setSecurityFeedback({
+          type: 'success',
+          msg: 'Identity verified. You can now set your new password.',
+        });
+      } else {
+        setSecurityFeedback({ type: 'error', msg: res.error || 'Invalid OTP code. Please try again.' });
+      }
+    } catch (err: any) {
+      setSecurityFeedback({ type: 'error', msg: err.message || 'Verification failed.' });
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
+  // Security: Save New Password
+  const handleSavePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isPasswordValid) {
+      setSecurityFeedback({
+        type: 'error',
+        msg: 'Please ensure your password meets all complexity requirements.',
+      });
+      return;
+    }
+
+    setIsSettingPassword(true);
+    setSecurityFeedback(null);
+    try {
+      const res = await setPassword(newPassword, user?.phone);
+      if (res.success) {
+        setSecurityFeedback({
+          type: 'success',
+          msg: 'Password successfully updated and secured!',
+        });
+        setSecurityStep('idle');
+        setNewPassword('');
+        setOtpCode('');
+      } else {
+        setSecurityFeedback({ type: 'error', msg: res.error || 'Failed to update password.' });
+      }
+    } catch (err: any) {
+      setSecurityFeedback({ type: 'error', msg: err.message || 'Error updating password.' });
+    } finally {
+      setIsSettingPassword(false);
+    }
+  };
+
   const userInitial = name.trim() ? name.trim().charAt(0).toUpperCase() : 'U';
 
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          {/* Backdrop Blur */}
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -153,11 +317,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
 
           {/* Modal Container */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.94, y: 15 }}
+            initial={{ opacity: 0, scale: 0.95, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-            className="relative bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-sand-200 overflow-hidden z-10 my-8"
+            className="relative bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-sand-200 overflow-hidden z-10 my-8"
             role="dialog"
             aria-modal="true"
           >
@@ -171,13 +335,63 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
             </button>
 
             {/* Modal Header */}
-            <div className="mb-6">
+            <div className="mb-5">
               <h3 className="text-2xl font-black text-stone-950 font-display tracking-tight">
-                Edit Profile
+                Account &amp; Settings
               </h3>
-              <p className="text-xs sm:text-sm text-stone-500 mt-1">
-                Manage your personal details, delivery address, and preferences.
+              <p className="text-xs text-stone-500 mt-0.5">
+                Manage your profile details, password security, and seller status.
               </p>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-sand-100 border border-sand-200 mb-5 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setActiveTab('profile')}
+                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeTab === 'profile'
+                    ? 'bg-white text-stone-950 shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <UserIcon className="w-3.5 h-3.5" />
+                <span>Personal Info</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('security')}
+                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeTab === 'security'
+                    ? 'bg-white text-stone-950 shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Password</span>
+                {user?.password_configured ? (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('seller')}
+                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeTab === 'seller'
+                    ? 'bg-white text-stone-950 shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <Store className="w-3.5 h-3.5" />
+                <span>Seller Studio</span>
+                {sellerApp?.status === 'approved' && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                )}
+              </button>
             </div>
 
             {/* Feedback Banners */}
@@ -207,220 +421,570 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
               )}
             </AnimatePresence>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Profile Picture Section */}
-              <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-sand-50/70 border border-sand-200/90">
-                <div className="relative group">
-                  {avatar ? (
-                    <img
-                      src={avatar}
-                      alt={name || 'Profile'}
-                      className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-soft-sm ring-2 ring-blue-500/20"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-500 text-white flex items-center justify-center font-black text-xl shadow-soft-sm border-2 border-white select-none">
-                      {userInitial}
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-stone-900 text-white flex items-center justify-center hover:bg-blue-600 transition shadow-xs cursor-pointer"
-                    title="Change profile picture"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-stone-900">Profile Photo</span>
-                    {!avatar && (
-                      <span className="text-[10px] text-stone-500 bg-sand-200/70 px-2 py-0.5 rounded-full font-medium">
-                        No photo set
-                      </span>
+            {/* TAB 1: PERSONAL PROFILE INFO */}
+            {activeTab === 'profile' && (
+              <form onSubmit={handleSubmitProfile} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                {/* Profile Picture Section */}
+                <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-sand-50/70 border border-sand-200/90">
+                  <div className="relative group">
+                    {avatar ? (
+                      <img
+                        src={avatar}
+                        alt={name || 'Profile'}
+                        className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-soft-sm ring-2 ring-blue-500/20"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-500 text-white flex items-center justify-center font-black text-lg shadow-soft-sm border-2 border-white select-none">
+                        {userInitial}
+                      </div>
                     )}
-                  </div>
-                  <p className="text-[11px] text-stone-500 mt-0.5">
-                    Optional. Add a profile picture or leave it blank as initials.
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleImageUpload}
-                      accept="image/*"
-                      className="hidden"
-                    />
+
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-2.5 py-1 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
+                      className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-stone-900 text-white flex items-center justify-center hover:bg-blue-600 transition shadow-xs cursor-pointer"
+                      title="Change profile picture"
                     >
-                      {avatar ? 'Change photo' : 'Add photo'}
+                      <Camera className="w-3 h-3" />
                     </button>
-                    {avatar && (
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-stone-900">Profile Photo</span>
+                      {!avatar && (
+                        <span className="text-[10px] text-stone-500 bg-sand-200/70 px-2 py-0.5 rounded-full font-medium">
+                          No photo set
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      Optional. Add a personal picture or keep initials badge.
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageUpload}
+                        accept="image/*"
+                        className="hidden"
+                      />
                       <button
                         type="button"
-                        onClick={handleRemovePhoto}
-                        className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer flex items-center gap-1"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-2.5 py-1 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
                       >
-                        <Trash2 className="w-3 h-3" />
-                        Remove
+                        {avatar ? 'Change photo' : 'Add photo'}
                       </button>
-                    )}
+                      {avatar && (
+                        <button
+                          type="button"
+                          onClick={handleRemovePhoto}
+                          className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* 1. Full Name & Verified Phone */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
-                    <UserIcon className="w-3.5 h-3.5 text-stone-500" />
-                    Full Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your name"
-                    required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 text-sm font-semibold text-stone-900 bg-sand-50/50"
-                  />
+                {/* 1. Full Name & Verified Phone */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1">
+                      <UserIcon className="w-3.5 h-3.5 text-stone-500" />
+                      Full Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Enter your name"
+                      required
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold text-stone-900 bg-sand-50/50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3.5 h-3.5 text-stone-500" />
+                        Mobile Number
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3" /> Verified
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={user?.phone || ''}
+                      disabled
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-sand-200 bg-sand-100/60 text-sm font-semibold text-stone-600 cursor-not-allowed select-none"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <Phone className="w-3.5 h-3.5 text-stone-500" />
-                      Mobile Number
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full inline-flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3" /> Verified
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    value={user?.phone || ''}
-                    disabled
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-sand-200 bg-sand-100/60 text-sm font-semibold text-stone-600 cursor-not-allowed select-none"
-                  />
-                </div>
-              </div>
+                {/* 2. Email & City */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1">
+                      <Mail className="w-3.5 h-3.5 text-stone-500" />
+                      Email Address <span className="text-[10px] text-stone-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-stone-900 bg-sand-50/50"
+                    />
+                  </div>
 
-              {/* 2. Email & City */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
-                    <Mail className="w-3.5 h-3.5 text-stone-500" />
-                    Email Address <span className="text-[10px] text-stone-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 text-sm text-stone-900 bg-sand-50/50"
-                  />
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-stone-500" />
+                      Current City
+                    </label>
+                    <select
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold text-stone-900 bg-sand-50/50"
+                    >
+                      {availableCities.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
+                {/* 3. Age & Gender */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-stone-500" />
+                      Age
+                    </label>
+                    <input
+                      type="number"
+                      min={12}
+                      max={120}
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      placeholder="e.g. 24"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-stone-900 bg-sand-50/50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Gender
+                    </label>
+                    <select
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-stone-900 bg-sand-50/50"
+                    >
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                      <option value="prefer_not_to_say">Prefer not to say</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 4. Delivery Address */}
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
+                  <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-stone-500" />
-                    Current City
+                    Delivery / Home Address
                   </label>
-                  <select
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 text-sm font-semibold text-stone-900 bg-sand-50/50"
-                  >
-                    {availableCities.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* 3. Age & Gender */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-stone-500" />
-                    Age
-                  </label>
-                  <input
-                    type="number"
-                    min={12}
-                    max={120}
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    placeholder="e.g. 24"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 text-sm text-stone-900 bg-sand-50/50"
+                  <textarea
+                    rows={2}
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Flat / House No., Building Name, Street, Landmark, Area, Pincode"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-stone-900 bg-sand-50/50 resize-none"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    Gender
-                  </label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 text-sm font-medium text-stone-900 bg-sand-50/50"
+                {/* Save Button */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-sand-200">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    onClick={onClose}
+                    disabled={isLoading}
                   >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
-                  </select>
+                    Cancel
+                  </Button>
+
+                  <Button
+                    type="submit"
+                    size="md"
+                    isLoading={isLoading}
+                    className="shadow-md px-6 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Save className="w-4 h-4 mr-1.5" />
+                    Save Profile
+                  </Button>
                 </div>
-              </div>
+              </form>
+            )}
 
-              {/* 4. Delivery Address */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-stone-500" />
-                  Delivery / Home Address
-                </label>
-                <textarea
-                  rows={3}
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Flat / House No., Building Name, Street, Landmark, Area, Pincode"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 text-sm text-stone-900 bg-sand-50/50 resize-none"
-                />
-                <p className="text-[11px] text-stone-500 mt-1">
-                  Used for doorstep deliveries from local sellers in your city.
-                </p>
-              </div>
+            {/* TAB 2: PASSWORD & SECURITY (STRICT OTP VERIFICATION) */}
+            {activeTab === 'security' && (
+              <div className="space-y-5">
+                {/* Security Feedback */}
+                {securityFeedback && (
+                  <div
+                    className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${
+                      securityFeedback.type === 'success'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-rose-50 text-rose-800 border border-rose-200'
+                    }`}
+                  >
+                    {securityFeedback.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
+                    <span>{securityFeedback.msg}</span>
+                  </div>
+                )}
 
-              {/* Save & Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-sand-200">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="md"
-                  onClick={onClose}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
+                {/* STATE 1: IDLE OVERVIEW */}
+                {securityStep === 'idle' && (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-sand-50 border border-sand-200 flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-extrabold text-stone-900">Account Password</span>
+                          {user?.password_configured ? (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Password Set
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                              Not Configured
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                          {user?.password_configured
+                            ? 'Your account is protected with a secure password. You can log in via SMS OTP or password.'
+                            : 'Set a password to log in directly without waiting for mobile SMS verification.'}
+                        </p>
+                      </div>
+                    </div>
 
-                <Button
-                  type="submit"
-                  size="md"
-                  isLoading={isLoading}
-                  className="shadow-md px-6 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Save className="w-4 h-4 mr-1.5" />
-                  Save Changes
-                </Button>
+                    <div className="p-4 rounded-2xl border border-sand-200 bg-blue-50/50 space-y-3">
+                      <div className="flex items-start gap-2.5 text-xs text-blue-900">
+                        <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                        <p>
+                          <strong>Strict OTP Protection:</strong> Adding or changing your password requires 6-digit OTP verification sent to your verified mobile number <strong className="text-stone-900">{user?.phone}</strong>.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleStartPasswordSetup}
+                        disabled={otpSending}
+                        className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {otpSending ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Sending OTP...</span>
+                          </>
+                        ) : (
+                          <>
+                            <KeyRound className="w-3.5 h-3.5" />
+                            <span>{user?.password_configured ? 'Change Password via OTP' : 'Configure Password via OTP'}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STATE 2: VERIFY OTP */}
+                {securityStep === 'verify_otp' && (
+                  <form onSubmit={handleVerifyOtp} className="space-y-4">
+                    <div className="text-center space-y-1">
+                      <h4 className="text-sm font-bold text-stone-900">Verify Mobile Number</h4>
+                      <p className="text-xs text-stone-500">
+                        Enter the 6-digit code sent to <strong className="text-stone-900">{user?.phone}</strong>
+                      </p>
+                    </div>
+
+                    <div>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        required
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="• • • • • •"
+                        className="w-full text-center tracking-[0.5em] font-mono font-black text-2xl py-3 rounded-2xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setSecurityStep('idle')}
+                        className="text-stone-500 hover:text-stone-800"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={resendTimer > 0 || otpSending}
+                        className="text-blue-600 font-bold disabled:text-stone-400 hover:underline"
+                      >
+                        {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend Code'}
+                      </button>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={otpVerifying || otpCode.length !== 6}
+                      className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {otpVerifying ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Verifying OTP...</span>
+                        </>
+                      ) : (
+                        <span>Verify &amp; Set Password</span>
+                      )}
+                    </button>
+                  </form>
+                )}
+
+                {/* STATE 3: ENTER NEW PASSWORD */}
+                {securityStep === 'enter_password' && (
+                  <form onSubmit={handleSavePassword} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                        New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Create a strong password"
+                          className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Live Criteria Badges */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                      <div className={`flex items-center gap-1.5 ${hasMinLength ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasMinLength ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>6+ characters</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${hasLetter ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasLetter ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>Contains letter</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${hasNumber ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasNumber ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>Contains number</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${hasSpecial ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasSpecial ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>Special character (@$!%*?&#)</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setSecurityStep('idle')}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-sand-100"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!isPasswordValid || isSettingPassword}
+                        className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
+                      >
+                        {isSettingPassword ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Saving Password...</span>
+                          </>
+                        ) : (
+                          <span>Save Password</span>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
-            </form>
+            )}
+
+            {/* TAB 3: SELLER STUDIO & APPLICATION STATUS */}
+            {activeTab === 'seller' && (
+              <div className="space-y-4">
+                {/* CASE 1: VERIFIED ACTIVE SELLER */}
+                {sellerApp?.status === 'approved' || user?.role === 'seller' ? (
+                  <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                        <h4 className="text-sm font-extrabold text-emerald-950">Verified Seller Active</h4>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        Approved
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-emerald-800 leading-relaxed">
+                      Your store <strong className="text-emerald-950">{sellerApp?.store_name || 'Your Studio'}</strong> is verified to publish products and fulfill local customer orders.
+                    </p>
+
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          navigate('/seller/dashboard');
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Store className="w-4 h-4" />
+                        <span>Open Seller Studio / Dashboard</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : sellerApp?.status === 'under_review' || sellerApp?.status === 'pending' || sellerApp?.status === 'submitted' ? (
+                  /* CASE 2: UNDER REVIEW */
+                  <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-amber-600" />
+                        <h4 className="text-sm font-extrabold text-amber-950">Application Under Review</h4>
+                      </div>
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                        Review in Progress
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-amber-900 leading-relaxed">
+                      We received your seller application for <strong className="text-amber-950">{sellerApp.store_name}</strong> ({sellerApp.city}). Our curation team verifies photos and IDs within 24–48 hours.
+                    </p>
+
+                    <div className="text-[11px] text-amber-800 space-y-1 bg-amber-100/60 p-2.5 rounded-xl">
+                      <div>Application ID: <span className="font-mono font-bold">{sellerApp.id}</span></div>
+                      <div>Primary Category: <span className="font-bold">{sellerApp.category}</span></div>
+                    </div>
+
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          navigate('/become-seller');
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>View / Update Application</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : sellerApp?.status === 'rejected' ? (
+                  /* CASE 3: ACTION NEEDED / REJECTED */
+                  <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-rose-600" />
+                        <h4 className="text-sm font-extrabold text-rose-950">Application Needs Revision</h4>
+                      </div>
+                      <span className="text-[10px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
+                        Action Needed
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-rose-800 leading-relaxed">
+                      {sellerApp.rejection_reason || 'Please provide updated product craft samples or verification documents.'}
+                    </p>
+
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          navigate('/become-seller');
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Revise &amp; Resubmit Application</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* CASE 4: NOT APPLIED YET */
+                  <div className="p-5 rounded-2xl bg-sand-50 border border-sand-200 space-y-3 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
+                      <Store className="w-6 h-6 text-blue-600" />
+                    </div>
+
+                    <h4 className="text-sm font-extrabold text-stone-900">
+                      Sell on Selluy
+                    </h4>
+
+                    <p className="text-xs text-stone-600 max-w-sm mx-auto leading-relaxed">
+                      Reach customers in your city looking for authentic indie brands and crafts. Complete the 5-step seller onboarding to get verified.
+                    </p>
+
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          navigate('/become-seller');
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Apply to Become a Verified Seller</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
         </div>
       )}

@@ -298,29 +298,78 @@ class MarketplaceService {
     return this.applications;
   }
 
-  public async submitSellerApplication(
-    data: Omit<SellerApplication, 'id' | 'created_at' | 'status'>
-  ): Promise<SellerApplication> {
-    const newApp: SellerApplication = {
-      ...data,
-      id: 'app-' + Date.now(),
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    };
+  public getApplicationByUserId(userId: string): SellerApplication | undefined {
+    return this.applications.find((a) => a.user_id === userId);
+  }
 
-    this.applications.unshift(newApp);
+  public async submitSellerApplication(
+    data: Omit<SellerApplication, 'id' | 'created_at' | 'status'> & { status?: SellerApplication['status'] }
+  ): Promise<SellerApplication> {
+    const existingIndex = this.applications.findIndex((a) => a.user_id === data.user_id);
+    let app: SellerApplication;
+
+    const targetStatus = data.status || 'under_review';
+
+    if (existingIndex >= 0) {
+      // Update existing application
+      app = {
+        ...this.applications[existingIndex],
+        ...data,
+        status: targetStatus,
+        rejection_reason: undefined, // Clear any previous rejection
+        updated_at: new Date().toISOString(),
+      };
+      this.applications[existingIndex] = app;
+    } else {
+      // Create new application
+      app = {
+        ...data,
+        id: 'app-' + Date.now(),
+        status: targetStatus,
+        created_at: new Date().toISOString(),
+      };
+      this.applications.unshift(app);
+    }
+
     localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('seller_applications').insert([newApp]);
+        await supabase.from('seller_applications').upsert([app]);
       } catch (err) {
-        console.warn('Supabase seller application insert:', err);
+        console.warn('Supabase seller application upsert:', err);
       }
     }
 
     this.notify();
-    return newApp;
+    return app;
+  }
+
+  public async updateSellerApplication(
+    id: string,
+    updates: Partial<SellerApplication>
+  ): Promise<SellerApplication> {
+    const index = this.applications.findIndex((a) => a.id === id);
+    if (index === -1) throw new Error('Application not found');
+
+    const updatedApp = {
+      ...this.applications[index],
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    this.applications[index] = updatedApp;
+    localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('seller_applications').update(updates).eq('id', id);
+      } catch (err) {
+        console.warn('Supabase seller application update:', err);
+      }
+    }
+
+    this.notify();
+    return updatedApp;
   }
 
   // --- SELLER PRODUCT CREATION (PENDING APPROVAL) ---
@@ -364,19 +413,23 @@ class MarketplaceService {
   }
 
   // --- ADMIN MODERATION ACTIONS ---
-  public async adminApproveSeller(applicationId: string): Promise<SellerProfile> {
+  public async adminApproveSeller(applicationId: string, internalNotes?: string): Promise<SellerProfile> {
     const app = this.applications.find((a) => a.id === applicationId);
     if (!app) throw new Error('Application not found');
 
     app.status = 'approved';
+    if (internalNotes !== undefined) app.internal_notes = internalNotes;
     app.updated_at = new Date().toISOString();
 
     // Create or update verified seller profile
     const existingSeller = this.sellers.find((s) => s.user_id === app.user_id);
     let sellerProfile: SellerProfile;
 
+    const sampleCover = app.product_samples?.[0] || app.documents?.craft_samples?.[0];
+
     if (existingSeller) {
       existingSeller.verification_status = 'approved';
+      if (sampleCover && !existingSeller.logo) existingSeller.logo = sampleCover;
       sellerProfile = existingSeller;
     } else {
       sellerProfile = {
@@ -384,7 +437,7 @@ class MarketplaceService {
         user_id: app.user_id,
         store_name: app.store_name,
         description: app.description,
-        logo: app.documents?.craft_samples?.[0] || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+        logo: sampleCover || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
         city: app.city,
         category_focus: app.category,
         seller_type: app.seller_type,
@@ -403,7 +456,10 @@ class MarketplaceService {
     if (isSupabaseConfigured()) {
       try {
         await Promise.all([
-          supabase.from('seller_applications').update({ status: 'approved' }).eq('id', applicationId),
+          supabase.from('seller_applications').update({
+            status: 'approved',
+            internal_notes: app.internal_notes,
+          }).eq('id', applicationId),
           supabase.from('seller_profiles').upsert([sellerProfile]),
           supabase.from('users').update({ role: 'seller' }).eq('id', app.user_id),
         ]);
@@ -416,11 +472,12 @@ class MarketplaceService {
     return sellerProfile;
   }
 
-  public async adminRejectSeller(applicationId: string, reason: string): Promise<void> {
+  public async adminRejectSeller(applicationId: string, reason: string, internalNotes?: string): Promise<void> {
     const app = this.applications.find((a) => a.id === applicationId);
     if (app) {
       app.status = 'rejected';
       app.rejection_reason = reason;
+      if (internalNotes !== undefined) app.internal_notes = internalNotes;
       app.updated_at = new Date().toISOString();
       localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
 
@@ -429,6 +486,7 @@ class MarketplaceService {
           await supabase.from('seller_applications').update({
             status: 'rejected',
             rejection_reason: reason,
+            internal_notes: app.internal_notes,
           }).eq('id', applicationId);
         } catch (err) {
           console.warn('Supabase admin reject seller error:', err);

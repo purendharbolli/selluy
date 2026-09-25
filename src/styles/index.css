@@ -33,3 +33,51 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Claymorphism & Spatial Modern Commerce Styles */
+.clay-card {
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 
+    0 12px 30px -6px rgba(37, 99, 235, 0.08),
+    0 6px 12px -4px rgba(15, 23, 42, 0.03),
+    inset 0 1px 2px rgba(255, 255, 255, 0.95),
+    inset 0 -2px 4px rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+}
+
+.clay-pill-yellow {
+  background: #FACC15;
+  box-shadow: 
+    0 6px 16px -2px rgba(234, 179, 8, 0.4),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.7),
+    inset 0 -1.5px 2px rgba(161, 98, 7, 0.15);
+}
+
+.clay-pill-white {
+  background: #ffffff;
+  box-shadow: 
+    0 6px 14px -2px rgba(15, 23, 42, 0.07),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 2px rgba(15, 23, 42, 0.04);
+}
+
+.clay-pill-blue {
+  background: #2563EB;
+  box-shadow: 
+    0 6px 16px -2px rgba(37, 99, 235, 0.35),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.45),
+    inset 0 -1.5px 2px rgba(29, 78, 216, 0.2);
+}
+
+@keyframes gentle-bob {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-gentle-bob {
+  animation: gentle-bob 4s ease-in-out infinite;
+}

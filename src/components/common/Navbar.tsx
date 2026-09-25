@@ -322,14 +322,13 @@ export const Navbar: React.FC = () => {
                   </AnimatePresence>
                 </div>
               ) : (
-                <Button
+                <button
                   onClick={() => setIsAuthModalOpen(true)}
-                  size="md"
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-full shadow-md hover:shadow-lg transition text-xs sm:text-sm tracking-wide"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full shadow-xs hover:shadow-sm transition text-xs tracking-wide cursor-pointer inline-flex items-center gap-1.5"
                 >
-                  <UserIcon className="w-4 h-4 mr-1.5" />
-                  Sign In
-                </Button>
+                  <UserIcon className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </button>
               )}
 
               {/* Mobile Menu Hamburger */}

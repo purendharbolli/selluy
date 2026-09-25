@@ -11,11 +11,11 @@ import {
   Heart,
   Search,
   Send,
+  Sparkles,
 } from 'lucide-react';
 import { useLocation } from '../../context/LocationContext';
 import { marketplaceService } from '../../services/marketplaceService';
 import { ProductCard } from '../product/ProductCard';
-import { SellerCard } from '../seller/SellerCard';
 import { LocationModal } from '../common/LocationModal';
 import { AuthModal } from '../auth/AuthModal';
 import { ShoppingAtmosphere } from '../common/ShoppingAtmosphere';
@@ -31,7 +31,6 @@ export const LoggedOutLanding: React.FC = () => {
   const [authModalStep, setAuthModalStep] = useState<'password-login' | 'otp-phone'>('password-login');
 
   const [localProducts, setLocalProducts] = useState<Product[]>([]);
-  const [localSellers, setLocalSellers] = useState<SellerProfile[]>([]);
   const [wishlistLoved, setWishlistLoved] = useState<Record<string, boolean>>({});
 
   const toggleWishlist = (id: string) => {
@@ -42,7 +41,6 @@ export const LoggedOutLanding: React.FC = () => {
   useEffect(() => {
     const loadData = () => {
       setLocalProducts(marketplaceService.getPublicProducts(selectedCity));
-      setLocalSellers(marketplaceService.getSellersByCity(selectedCity));
     };
 
     loadData();
@@ -59,44 +57,79 @@ export const LoggedOutLanding: React.FC = () => {
     }
   };
 
-  // 7 Categories strictly matching the mockup
+  // 7 Categories strictly matching the mockup with ultra-sharp, high-definition studio imagery
   const mockupCategories = [
-    { name: 'Fashion', image: '/homepage/cat-fashion.png', slug: 'fashion' },
-    { name: 'Accessories', image: '/homepage/cat-accessories.png', slug: 'accessories' },
-    { name: 'Home', image: '/homepage/cat-home.png', slug: 'home-decor' },
-    { name: 'Beauty', image: '/homepage/cat-beauty.png', slug: 'beauty' },
-    { name: 'Electronics', image: '/homepage/cat-electronics.png', slug: 'electronics' },
-    { name: 'Lifestyle', image: '/homepage/cat-lifestyle.png', slug: 'lifestyle' },
-    { name: 'Gifts', image: '/homepage/cat-gifts.png', slug: 'gifts' },
+    {
+      name: 'Fashion',
+      image: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=600&q=85',
+      slug: 'fashion',
+      accent: 'border-amber-400 ring-2 ring-amber-300/40',
+    },
+    {
+      name: 'Accessories',
+      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=85',
+      slug: 'accessories',
+      accent: 'border-stone-200/80',
+    },
+    {
+      name: 'Home',
+      image: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=600&q=85',
+      slug: 'home-decor',
+      accent: 'border-stone-200/80',
+    },
+    {
+      name: 'Beauty',
+      image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=600&q=85',
+      slug: 'beauty',
+      accent: 'border-stone-200/80',
+    },
+    {
+      name: 'Electronics',
+      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=85',
+      slug: 'electronics',
+      accent: 'border-stone-200/80',
+    },
+    {
+      name: 'Lifestyle',
+      image: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=600&q=85',
+      slug: 'lifestyle',
+      accent: 'border-stone-200/80',
+    },
+    {
+      name: 'Gifts',
+      image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=600&q=85',
+      slug: 'gifts',
+      accent: 'border-stone-200/80',
+    },
   ];
 
-  // 4 Local Picks strictly matching the mockup
+  // 4 Local Picks matching the mockup with ultra-sharp high-definition photography
   const mockupPicks = [
     {
       id: 'pick-tote',
       title: 'Canvas Tote Bag',
-      image: '/homepage/prod-tote.png',
+      image: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=85',
       seller: 'Local Seller',
       city: selectedCity || 'Hyderabad',
     },
     {
       id: 'pick-sneakers',
       title: 'Casual Sneakers',
-      image: '/homepage/prod-sneakers.png',
+      image: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=85',
       seller: 'Local Seller',
       city: selectedCity || 'Hyderabad',
     },
     {
       id: 'pick-necklace',
       title: 'Minimal Necklace',
-      image: '/homepage/prod-necklace.png',
+      image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=85',
       seller: 'Local Seller',
       city: selectedCity || 'Hyderabad',
     },
     {
       id: 'pick-lamp',
       title: 'Table Lamp',
-      image: '/homepage/prod-lamp.png',
+      image: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=800&q=85',
       seller: 'Local Seller',
       city: selectedCity || 'Hyderabad',
     },
@@ -111,7 +144,7 @@ export const LoggedOutLanding: React.FC = () => {
       initialsBg: 'bg-stone-800 text-stone-100',
       category: 'Home',
       city: selectedCity || 'Hyderabad',
-      preview: '/homepage/seller-home-preview.png',
+      preview: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=300&q=85',
     },
     {
       id: 'stylekraft',
@@ -120,7 +153,7 @@ export const LoggedOutLanding: React.FC = () => {
       initialsBg: 'bg-indigo-900 text-indigo-100',
       category: 'Fashion',
       city: selectedCity || 'Hyderabad',
-      preview: '/homepage/seller-fashion-preview.png',
+      preview: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=300&q=85',
     },
     {
       id: 'pure-glow',
@@ -129,7 +162,7 @@ export const LoggedOutLanding: React.FC = () => {
       initialsBg: 'bg-amber-600 text-white',
       category: 'Beauty',
       city: selectedCity || 'Hyderabad',
-      preview: '/homepage/seller-beauty-preview.png',
+      preview: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=300&q=85',
     },
     {
       id: 'technest',
@@ -138,16 +171,16 @@ export const LoggedOutLanding: React.FC = () => {
       initialsBg: 'bg-slate-900 text-slate-100',
       category: 'Electronics',
       city: selectedCity || 'Hyderabad',
-      preview: '/homepage/seller-electronics-preview.png',
+      preview: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=85',
     },
   ];
 
   return (
     <div className="relative space-y-12 sm:space-y-16 pb-20 overflow-hidden bg-[#FAFBFF]">
-      {/* Subtle, art-directed shopping atmosphere in background */}
+      {/* Art-directed shopping atmosphere in background */}
       <ShoppingAtmosphere />
 
-      {/* 1. HERO SECTION (BLUE + YELLOW COMMERCE ACCENT + UNIFIED 3D CLAYMORPHIC PRODUCT CLUSTER) */}
+      {/* 1. HERO SECTION (BLUE + YELLOW COMMERCE ACCENT + ULTRA HD 3D CLAYMORPHIC PRODUCT CLUSTER) */}
       <section className="relative overflow-hidden pt-6 pb-8 sm:pt-10 sm:pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-center">
@@ -162,8 +195,8 @@ export const LoggedOutLanding: React.FC = () => {
                 transition={{ duration: 0.3 }}
                 className="inline-flex items-center gap-2"
               >
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF08A] text-amber-950 border border-amber-300/80 text-[10px] sm:text-xs font-extrabold uppercase tracking-wider shadow-2xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#FEF08A] text-amber-950 border border-amber-300/80 text-[10px] sm:text-xs font-extrabold uppercase tracking-wider shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
                   <span>SELLUY • LOCAL MARKETPLACE</span>
                 </div>
               </motion.div>
@@ -241,22 +274,22 @@ export const LoggedOutLanding: React.FC = () => {
               </motion.div>
             </div>
 
-            {/* RIGHT COLUMN: The Master 3D Claymorphic Product Cluster (Matching Mockup 100%) */}
+            {/* RIGHT COLUMN: Ultra-HD 4K 3D Claymorphic Product Cluster */}
             <div className="lg:col-span-6 relative flex items-center justify-center">
               <motion.div
                 initial={{ opacity: 0, scale: 0.94 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.15 }}
-                className="relative w-full max-w-[560px] mx-auto select-none"
+                className="relative w-full max-w-[580px] mx-auto select-none"
               >
                 {/* Luminous Warm Light Glow Behind Cluster */}
-                <div className="absolute inset-0 bg-radial from-amber-300/35 via-amber-200/20 to-transparent rounded-full blur-2xl transform scale-110 pointer-events-none" />
+                <div className="absolute inset-0 bg-radial from-amber-300/30 via-amber-200/15 to-transparent rounded-full blur-2xl transform scale-110 pointer-events-none" />
 
-                {/* The Master 3D Product Composition (Sneakers, Tote, Headphones, Watch, Succulent, Flask, Badges) */}
+                {/* Ultra High-Resolution 1200x896 3D Product Composition */}
                 <img
                   src="/homepage/hero-cluster.png"
                   alt="Selluy local marketplace products cluster"
-                  className="relative z-10 w-full h-auto object-contain drop-shadow-xl"
+                  className="relative z-10 w-full h-auto object-contain drop-shadow-2xl"
                   loading="eager"
                 />
               </motion.div>
@@ -335,33 +368,28 @@ export const LoggedOutLanding: React.FC = () => {
           </Link>
         </div>
 
-        {/* 7 Clean Mockup-Exact Category Cards */}
+        {/* 7 Ultra-Sharp Studio Category Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
-          {mockupCategories.map((cat, idx) => {
-            const isFirst = idx === 0;
-            return (
-              <Link
-                key={cat.slug}
-                to={`/explore?category=${cat.slug}`}
-                className={`group flex flex-col items-center p-3 rounded-2xl bg-white border ${
-                  isFirst ? 'border-amber-400 ring-2 ring-amber-300/40' : 'border-stone-200/80'
-                } shadow-2xs hover:shadow-soft hover:scale-[1.03] transition duration-300`}
-              >
-                <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-stone-50 mb-2 flex items-center justify-center p-1">
-                  <img
-                    src={cat.image}
-                    alt={cat.name}
-                    className="w-full h-full object-contain group-hover:scale-105 transition duration-300"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="flex items-center gap-1 text-xs font-bold text-stone-800 group-hover:text-[#2563EB] transition">
-                  <span>{cat.name}</span>
-                  <span className="text-amber-500 font-bold">›</span>
-                </div>
-              </Link>
-            );
-          })}
+          {mockupCategories.map((cat) => (
+            <Link
+              key={cat.slug}
+              to={`/explore?category=${cat.slug}`}
+              className={`group flex flex-col items-center p-3 rounded-2xl bg-white border ${cat.accent} shadow-2xs hover:shadow-soft hover:scale-[1.03] transition duration-300`}
+            >
+              <div className="w-full aspect-square rounded-xl overflow-hidden bg-stone-50 mb-2 flex items-center justify-center p-1">
+                <img
+                  src={cat.image}
+                  alt={cat.name}
+                  className="w-full h-full object-cover rounded-lg group-hover:scale-105 transition duration-300"
+                  loading="lazy"
+                />
+              </div>
+              <div className="flex items-center gap-1 text-xs font-bold text-stone-800 group-hover:text-[#2563EB] transition">
+                <span>{cat.name}</span>
+                <span className="text-amber-500 font-bold">›</span>
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -389,7 +417,7 @@ export const LoggedOutLanding: React.FC = () => {
           </Link>
         </div>
 
-        {/* 4 Mockup-Exact Local Pick Cards */}
+        {/* 4 Ultra-Sharp Local Pick Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {mockupPicks.map((pick) => {
             const isLoved = wishlistLoved[pick.id];
@@ -442,7 +470,7 @@ export const LoggedOutLanding: React.FC = () => {
           })}
         </div>
 
-        {/* If additional real dynamic database products exist, render them cleanly below */}
+        {/* Dynamic database listings if available */}
         {localProducts.length > 4 && (
           <div className="mt-6 pt-6 border-t border-stone-200">
             <h3 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-4">
@@ -457,29 +485,29 @@ export const LoggedOutLanding: React.FC = () => {
         )}
       </section>
 
-      {/* 5. SOCIAL SELLER POSITIONING BANNER (CRITICAL POSITIONING) */}
+      {/* 5. SOCIAL SELLER POSITIONING BANNER */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative overflow-hidden rounded-4xl bg-[#EDF4FF] border border-blue-100 p-6 sm:p-10 lg:p-10 shadow-soft-sm">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             
-            {/* Left: 3D Smartphone Illustration with Instagram, WhatsApp & Bag */}
-            <div className="lg:col-span-4 relative flex items-center justify-center">
+            {/* Left: Ultra-HD 1200x896 3D Smartphone Illustration */}
+            <div className="lg:col-span-5 relative flex items-center justify-center">
               <motion.div
-                whileHover={{ scale: 1.03 }}
+                whileHover={{ scale: 1.02 }}
                 transition={{ duration: 0.3 }}
-                className="relative w-48 sm:w-56"
+                className="relative w-full max-w-[320px] select-none"
               >
                 <img
                   src="/homepage/social-phone.png"
                   alt="Sell from Instagram and WhatsApp on Selluy"
-                  className="w-full h-auto object-contain drop-shadow-md"
+                  className="w-full h-auto object-contain drop-shadow-xl"
                   loading="lazy"
                 />
               </motion.div>
             </div>
 
             {/* Center: Exact Headline and Supporting Text */}
-            <div className="lg:col-span-5 space-y-3 text-center lg:text-left">
+            <div className="lg:col-span-4 space-y-3 text-center lg:text-left">
               <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-100 text-blue-900 text-[10px] sm:text-xs font-extrabold uppercase tracking-wider">
                 <span>FOR SOCIAL SELLERS &amp; SMALL BUSINESSES</span>
               </div>
@@ -504,18 +532,19 @@ export const LoggedOutLanding: React.FC = () => {
               </div>
             </div>
 
-            {/* Right: Playful Tilted Stamp Badge (Same products. Bigger audience.) */}
+            {/* Right: Crisp Vector Sparkle Stamp Badge (Same products. Bigger audience.) */}
             <div className="lg:col-span-3 flex items-center justify-center lg:justify-end">
               <motion.div
                 whileHover={{ rotate: -2, scale: 1.05 }}
-                className="w-36 sm:w-44 select-none"
+                className="transform -rotate-6 select-none text-right p-4 bg-white/60 backdrop-blur-xs rounded-2xl border border-blue-200/60 shadow-2xs"
               >
-                <img
-                  src="/homepage/social-badge.png"
-                  alt="Same products. Bigger audience."
-                  className="w-full h-auto object-contain drop-shadow-sm"
-                  loading="lazy"
-                />
+                <div className="text-blue-600 font-extrabold text-base sm:text-lg font-display leading-tight flex items-center justify-end gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400" />
+                  <span>Same products.</span>
+                </div>
+                <div className="text-blue-700 font-black text-lg sm:text-xl font-display tracking-tight underline decoration-amber-400 decoration-4">
+                  Bigger audience.
+                </div>
               </motion.div>
             </div>
 
@@ -547,7 +576,7 @@ export const LoggedOutLanding: React.FC = () => {
           </Link>
         </div>
 
-        {/* 4 Clean Mockup-Exact Seller Cards */}
+        {/* 4 Clean Mockup-Exact Seller Cards with High-Res Previews */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {mockupSellers.map((seller) => (
             <Link
@@ -575,11 +604,11 @@ export const LoggedOutLanding: React.FC = () => {
                 </div>
               </div>
 
-              <div className="w-10 h-10 rounded-xl overflow-hidden bg-stone-50 shrink-0 border border-stone-200 flex items-center justify-center p-0.5">
+              <div className="w-11 h-11 rounded-xl overflow-hidden bg-stone-50 shrink-0 border border-stone-200 flex items-center justify-center">
                 <img
                   src={seller.preview}
                   alt={seller.name}
-                  className="w-full h-full object-contain group-hover:scale-110 transition duration-300"
+                  className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
                   loading="lazy"
                 />
               </div>
@@ -616,8 +645,8 @@ export const LoggedOutLanding: React.FC = () => {
               </button>
             </Link>
 
-            {/* 3D Yellow Bag Illustration (Extracted directly from mockup) */}
-            <div className="hidden sm:block w-16 h-12 relative shrink-0">
+            {/* 3D Yellow Bag Illustration (Ultra-HD Studio Render) */}
+            <div className="hidden sm:block w-16 h-14 relative shrink-0">
               <img
                 src="/homepage/banner-yellow-bag-transparent.png"
                 alt="Selluy Bag"

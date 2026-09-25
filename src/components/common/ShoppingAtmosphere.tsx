@@ -23,7 +23,7 @@ export const ShoppingAtmosphere: React.FC = () => {
         <img
           src="/homepage/float-yellow-bag.png"
           alt=""
-          className="w-full h-auto object-contain transform -rotate-6 select-none"
+          className="w-full h-auto object-contain transform -rotate-6 select-none filter blur-[2px]"
         />
       </div>
 
@@ -32,7 +32,7 @@ export const ShoppingAtmosphere: React.FC = () => {
         <img
           src="/homepage/float-blue-pin.png"
           alt=""
-          className="w-full h-auto object-contain transform -rotate-12 select-none"
+          className="w-full h-auto object-contain transform -rotate-12 select-none filter blur-[1.5px]"
         />
       </div>
 
@@ -41,7 +41,8 @@ export const ShoppingAtmosphere: React.FC = () => {
         <img
           src="/homepage/float-blue-bag.png"
           alt=""
-          className="w-full h-auto object-contain transform rotate-6 select-none"
+          className="w-full h-auto object-contain transform rotate-6 select-none filter blur-[2px]"
+
         />
       </div>
 

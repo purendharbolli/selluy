@@ -13,6 +13,8 @@ import {
   Store,
   MessageSquare,
   Package,
+  Globe,
+  ExternalLink,
 } from 'lucide-react';
 import { marketplaceService } from '../services/marketplaceService';
 import { VerifiedBadge } from '../components/common/VerifiedBadge';
@@ -27,6 +29,8 @@ export const SellerProfilePage: React.FC = () => {
   const [seller, setSeller] = useState(marketplaceService.getSellerById(id || ''));
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [socialLink, setSocialLink] = useState<string | undefined>();
+  const [websiteLink, setWebsiteLink] = useState<string | undefined>();
   const [activeTab, setActiveTab] = useState<'creations' | 'about' | 'reviews'>('creations');
   const [shareToast, setShareToast] = useState(false);
 
@@ -35,8 +39,12 @@ export const SellerProfilePage: React.FC = () => {
     const s = marketplaceService.getSellerById(id);
     setSeller(s);
     if (s) {
-      setProducts(marketplaceService.getProductsBySeller(s.id).filter((p) => p.status === 'approved' || !p.status));
+      setProducts(marketplaceService.getPublicProductsBySeller(s.id));
       setReviews(marketplaceService.getReviewsBySeller(s.id));
+
+      const app = marketplaceService.getApplications().find((a) => a.user_id === s.user_id);
+      setSocialLink(s.social_link || app?.social_media_url);
+      setWebsiteLink(s.website_url || app?.website_url);
     }
   }, [id]);
 
@@ -142,6 +150,35 @@ export const SellerProfilePage: React.FC = () => {
                   </>
                 ) : null}
               </div>
+
+              {(socialLink || websiteLink) && (
+                <div className="flex items-center gap-2 pt-2 text-xs flex-wrap">
+                  {socialLink && (
+                    <a
+                      href={socialLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-50 text-pink-700 font-bold hover:bg-pink-100 transition shadow-2xs"
+                    >
+                      <Instagram className="w-3.5 h-3.5 text-pink-600" />
+                      <span>Social Page</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                  {websiteLink && (
+                    <a
+                      href={websiteLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition shadow-2xs"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Website</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -187,8 +224,8 @@ export const SellerProfilePage: React.FC = () => {
           ) : (
             <div className="bg-white rounded-3xl p-12 text-center border border-sand-200/90 shadow-soft-sm text-xs text-stone-500 max-w-md mx-auto">
               <Store className="w-8 h-8 text-stone-400 mx-auto mb-2" />
-              <p className="font-bold text-stone-800 text-sm">No live drops currently</p>
-              <p className="mt-1">This creator has not published active inventory yet.</p>
+              <p className="font-bold text-stone-800 text-sm">This seller hasn't listed any products yet.</p>
+              <p className="mt-1">When this creator publishes approved pieces, they will appear here.</p>
             </div>
           )}
         </motion.div>

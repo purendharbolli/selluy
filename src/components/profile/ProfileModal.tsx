@@ -23,24 +23,26 @@ import {
   RefreshCw,
   ExternalLink,
   Lock,
+  Package,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLocation } from '../../context/LocationContext';
 import { marketplaceService } from '../../services/marketplaceService';
-import { SellerApplication } from '../../types';
+import { SellerApplication, Order } from '../../types';
 import { Button } from '../ui/Button';
 
 export interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: 'profile' | 'orders' | 'security' | 'seller';
 }
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, initialTab = 'profile' }) => {
   const navigate = useNavigate();
   const { user, updateUser, sendOtp, verifyOtp, setPassword } = useAuth();
   const { availableCities } = useLocation();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'seller'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'security' | 'seller'>(initialTab);
 
   // Profile Form State
   const [name, setName] = useState('');
@@ -69,30 +71,42 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
   // Seller App State
   const [sellerApp, setSellerApp] = useState<SellerApplication | null>(null);
 
+  // Buyer Orders State
+  const [userOrders, setUserOrders] = useState<Order[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync state from user object on modal open
   useEffect(() => {
-    if (isOpen && user) {
-      setName(user.name || '');
-      setEmail(user.email || '');
-      setAddress(user.address || '');
-      setAge(user.age !== undefined ? String(user.age) : '');
-      setGender(user.gender || 'prefer_not_to_say');
-      setCity(user.city || 'Hyderabad');
-      setAvatar(user.avatar || undefined);
-      setSuccessMsg('');
-      setErrorMsg('');
-      setSecurityStep('idle');
-      setOtpCode('');
-      setNewPassword('');
-      setSecurityFeedback(null);
+    if (isOpen) {
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
+      if (user) {
+        setName(user.name || '');
+        setEmail(user.email || '');
+        setAddress(user.address || '');
+        setAge(user.age !== undefined ? String(user.age) : '');
+        setGender(user.gender || 'prefer_not_to_say');
+        setCity(user.city || 'Hyderabad');
+        setAvatar(user.avatar || undefined);
+        setSuccessMsg('');
+        setErrorMsg('');
+        setSecurityStep('idle');
+        setOtpCode('');
+        setNewPassword('');
+        setSecurityFeedback(null);
 
-      // Fetch seller application
-      const app = marketplaceService.getApplicationByUserId(user.id);
-      setSellerApp(app || null);
+        // Fetch seller application
+        const app = marketplaceService.getApplicationByUserId(user.id);
+        setSellerApp(app || null);
+
+        // Fetch buyer's real orders
+        const orders = marketplaceService.getOrdersByBuyer(user.id);
+        setUserOrders(orders);
+      }
     }
-  }, [isOpen, user]);
+  }, [isOpen, initialTab, user]);
 
   // Resend countdown timer
   useEffect(() => {
@@ -345,31 +359,49 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
             </div>
 
             {/* Navigation Tabs */}
-            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-sand-100 border border-sand-200 mb-5 text-xs font-bold">
+            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-sand-100 border border-sand-200 mb-5 text-xs font-bold overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setActiveTab('profile')}
-                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-2 px-2.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   activeTab === 'profile'
                     ? 'bg-white text-stone-950 shadow-xs'
                     : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
                 <UserIcon className="w-3.5 h-3.5" />
-                <span>Personal Info</span>
+                <span>Account</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('orders')}
+                className={`flex-1 py-2 px-2.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'orders'
+                    ? 'bg-white text-stone-950 shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <Package className="w-3.5 h-3.5" />
+                <span>Orders</span>
+                {userOrders.length > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold">
+                    {userOrders.length}
+                  </span>
+                )}
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('security')}
-                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-2 px-2.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   activeTab === 'security'
                     ? 'bg-white text-stone-950 shadow-xs'
                     : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>Password</span>
+                <Lock className="w-3.5 h-3.5" />
+                <span>Security</span>
                 {user?.password_configured ? (
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 ) : (
@@ -380,14 +412,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
               <button
                 type="button"
                 onClick={() => setActiveTab('seller')}
-                className={`flex-1 py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-2 px-2.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   activeTab === 'seller'
                     ? 'bg-white text-stone-950 shadow-xs'
                     : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
                 <Store className="w-3.5 h-3.5" />
-                <span>Seller Studio</span>
+                <span>{user?.role === 'seller' || sellerApp?.status === 'approved' ? 'Seller Studio' : 'Become Seller'}</span>
                 {sellerApp?.status === 'approved' && (
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 )}
@@ -636,7 +668,110 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
               </form>
             )}
 
-            {/* TAB 2: PASSWORD & SECURITY (STRICT OTP VERIFICATION) */}
+            {/* TAB 2: BUYER ORDERS & STATUS */}
+            {activeTab === 'orders' && (
+              <div className="space-y-4">
+                {userOrders.length === 0 ? (
+                  <div className="py-12 px-4 text-center space-y-3 bg-sand-50/50 rounded-2xl border border-sand-200">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200 shadow-2xs">
+                      <Package className="w-7 h-7" />
+                    </div>
+                    <h4 className="text-base font-extrabold text-stone-900">No orders placed yet</h4>
+                    <p className="text-xs text-stone-500 max-w-sm mx-auto leading-relaxed">
+                      Discover local artisan drops, place an order with instant seller confirmation, and track your local delivery right here.
+                    </p>
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          navigate('/explore');
+                        }}
+                        className="px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition cursor-pointer"
+                      >
+                        Explore Local Products
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                    {userOrders.map((order) => (
+                      <div key={order.id} className="p-4 rounded-2xl bg-sand-50/70 border border-sand-200/90 space-y-3">
+                        <div className="flex items-center justify-between text-xs">
+                          <div>
+                            <span className="font-mono font-bold text-stone-900">#{order.id.slice(0, 8)}</span>
+                            <span className="text-stone-400 mx-1.5">•</span>
+                            <span className="text-stone-500">{new Date(order.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              order.status === 'delivered'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : order.status === 'shipped'
+                                ? 'bg-blue-100 text-blue-800'
+                                : order.status === 'processing'
+                                ? 'bg-indigo-100 text-indigo-800'
+                                : order.status === 'confirmed'
+                                ? 'bg-amber-100 text-amber-800'
+                                : order.status === 'cancelled'
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-sand-200 text-stone-700'
+                            }`}
+                          >
+                            {order.status}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 border-y border-sand-200/80 py-2">
+                          {order.items.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2.5">
+                                {item.product?.images?.[0] ? (
+                                  <img
+                                    src={item.product.images[0]}
+                                    alt={item.product.name}
+                                    className="w-10 h-10 rounded-lg object-cover border border-sand-200"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-lg bg-sand-200 flex items-center justify-center text-stone-500 font-bold text-[10px]">
+                                    IMG
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-bold text-stone-900 line-clamp-1">
+                                    {item.product?.name || `Item ${idx + 1}`}
+                                  </p>
+                                  <p className="text-[11px] text-stone-500">
+                                    Qty: {item.quantity} × ₹{item.price.toLocaleString('en-IN')}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="font-extrabold text-stone-900">
+                                ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs pt-1">
+                          <span className="text-stone-500">
+                            Ship to: <strong className="text-stone-700">{order.shipping_address?.city || 'Local'}</strong>
+                          </span>
+                          <div className="text-right">
+                            <span className="text-stone-500 text-[11px] mr-1">Total:</span>
+                            <span className="text-sm font-black text-stone-950 font-display">
+                              ₹{order.total_amount.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: PASSWORD & SECURITY (STRICT OTP VERIFICATION) */}
             {activeTab === 'security' && (
               <div className="space-y-5">
                 {/* Security Feedback */}
@@ -872,17 +1007,29 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                       Your store <strong className="text-emerald-950">{sellerApp?.store_name || 'Your Studio'}</strong> is verified to publish products and fulfill local customer orders.
                     </p>
 
-                    <div className="pt-2">
+                    <div className="pt-2 flex flex-col sm:flex-row gap-2">
                       <button
                         type="button"
                         onClick={() => {
                           onClose();
                           navigate('/seller/dashboard');
                         }}
-                        className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Store className="w-4 h-4" />
-                        <span>Open Seller Studio / Dashboard</span>
+                        <span>Seller Dashboard</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          const storeId = sellerApp?.id || marketplaceService.getSellerByUserId(user?.id || '')?.id || user?.id;
+                          navigate(`/seller/${storeId}`);
+                        }}
+                        className="flex-1 py-2.5 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        <span>View Storefront</span>
                       </button>
                     </div>
                   </div>

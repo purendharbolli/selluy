@@ -52,6 +52,7 @@ export function App() {
                   <Route path="/cart" element={<CartPage />} />
                   <Route path="/checkout" element={<CheckoutPage />} />
                   <Route path="/wishlist" element={<WishlistPage />} />
+                  <Route path="/become-seller" element={<SellerOnboardingPage />} />
                   <Route path="/seller/onboarding" element={<SellerOnboardingPage />} />
                   <Route path="/seller/dashboard" element={<SellerDashboardPage />} />
                   

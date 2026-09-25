@@ -39,7 +39,7 @@ export const LoggedOutLanding: React.FC = () => {
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalPhone, setAuthModalPhone] = useState('');
-  const [authModalStep, setAuthModalStep] = useState<'phone' | 'otp'>('phone');
+  const [authModalStep, setAuthModalStep] = useState<'password-login' | 'otp-phone'>('password-login');
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [localProducts, setLocalProducts] = useState<Product[]>([]);

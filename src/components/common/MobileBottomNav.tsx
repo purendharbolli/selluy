@@ -6,7 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 
 export const MobileBottomNav: React.FC = () => {
   const { cartCount, wishlist } = useCart();
-  const { role } = useAuth();
+  const { role, sellerProfile } = useAuth();
+  const isSeller = role === 'seller' || sellerProfile?.verification_status === 'approved';
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-sand-200 px-2 py-1.5 shadow-[0_-4px_16px_rgba(0,0,0,0.05)]">
@@ -69,7 +70,7 @@ export const MobileBottomNav: React.FC = () => {
           <span>Saved</span>
         </NavLink>
 
-        {role === 'seller' ? (
+        {isSeller ? (
           <NavLink
             to="/seller/dashboard"
             className={({ isActive }) =>
@@ -83,7 +84,7 @@ export const MobileBottomNav: React.FC = () => {
           </NavLink>
         ) : (
           <NavLink
-            to="/seller/onboarding"
+            to="/become-seller"
             className={({ isActive }) =>
               `flex flex-col items-center py-1 px-3 text-[11px] font-semibold transition ${
                 isActive ? 'text-blue-600' : 'text-stone-500 hover:text-stone-900'

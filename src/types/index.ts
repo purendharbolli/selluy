@@ -118,7 +118,10 @@ export interface Product {
   rejection_reason?: string;
   featured?: boolean;
   trending?: boolean;
+  variants?: string[];
+  delivery_info?: string;
   created_at: string;
+  updated_at?: string;
   // Joins/Populated
   seller?: SellerProfile;
   category?: Category;

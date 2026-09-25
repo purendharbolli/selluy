@@ -1,4 +1,4 @@
-import { Product, SellerProfile, Category, Order, Report, SellerApplication, Review, City } from '../types';
+import { Product, ProductStatus, SellerProfile, Category, Order, Report, SellerApplication, Review, City } from '../types';
 import { INITIAL_CATEGORIES } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
@@ -229,6 +229,153 @@ class MarketplaceService {
     return this.getAllRawProducts().filter((p) => p.seller_id === sellerId && p.status !== 'deleted');
   }
 
+  public getPublicProductsBySeller(sellerId: string): Product[] {
+    return this.getAllRawProducts().filter(
+      (p) => p.seller_id === sellerId && (p.status === 'approved' || !p.status) && p.active !== false
+    );
+  }
+
+  // --- SELLER PRODUCT CREATION & MANAGEMENT (MODERATION ENFORCED) ---
+  public async createProduct(
+    data: Omit<Product, 'id' | 'created_at' | 'status'> & { status?: ProductStatus }
+  ): Promise<Product> {
+    const newProduct: Product = {
+      ...data,
+      id: 'prod-' + Date.now(),
+      status: data.status || 'pending_approval', // Moderation required by default
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      active: data.status === 'approved' ? Boolean(data.active) : false,
+    };
+
+    this.products.unshift(newProduct);
+    localStorage.setItem(STORAGE_PRODUCTS, JSON.stringify(this.products));
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('products').insert([newProduct]);
+      } catch (err) {
+        console.warn('Supabase product insert:', err);
+      }
+    }
+
+    this.notify();
+    return newProduct;
+  }
+
+  public async updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
+    const index = this.products.findIndex((p) => p.id === id);
+    if (index === -1) throw new Error('Product not found');
+
+    const updatedProduct = {
+      ...this.products[index],
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    this.products[index] = updatedProduct;
+    localStorage.setItem(STORAGE_PRODUCTS, JSON.stringify(this.products));
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('products').update(updates).eq('id', id);
+      } catch (err) {
+        console.warn('Supabase product update:', err);
+      }
+    }
+    this.notify();
+    return updatedProduct;
+  }
+
+  // Authorized seller product update
+  public async sellerUpdateProduct(
+    id: string,
+    sellerId: string,
+    updates: Partial<Product>
+  ): Promise<Product> {
+    const product = this.products.find((p) => p.id === id);
+    if (!product) throw new Error('Product not found');
+    if (product.seller_id !== sellerId) {
+      throw new Error('Unauthorized: You can only edit your own products.');
+    }
+
+    // Significant edits (title, price, photos, description) require re-moderation
+    const requiresModeration =
+      (updates.name && updates.name !== product.name) ||
+      (updates.price && updates.price !== product.price) ||
+      (updates.images && JSON.stringify(updates.images) !== JSON.stringify(product.images)) ||
+      (updates.description && updates.description !== product.description);
+
+    const targetStatus: ProductStatus = requiresModeration
+      ? 'pending_approval'
+      : updates.status || product.status || 'approved';
+
+    const targetActive = targetStatus === 'approved' ? (updates.active ?? product.active) : false;
+
+    return this.updateProduct(id, {
+      ...updates,
+      status: targetStatus,
+      active: targetActive,
+      rejection_reason: requiresModeration ? undefined : product.rejection_reason,
+    });
+  }
+
+  // Seller pause / unpause product
+  public async sellerPauseProduct(id: string, sellerId: string): Promise<Product> {
+    const product = this.products.find((p) => p.id === id);
+    if (!product) throw new Error('Product not found');
+    if (product.seller_id !== sellerId) {
+      throw new Error('Unauthorized: You can only pause your own products.');
+    }
+
+    const nextStatus: ProductStatus = product.status === 'paused' ? 'approved' : 'paused';
+    const nextActive = nextStatus === 'approved';
+
+    return this.updateProduct(id, {
+      status: nextStatus,
+      active: nextActive,
+    });
+  }
+
+  // Seller delete product (soft-delete preserves order history)
+  public async sellerDeleteProduct(id: string, sellerId: string): Promise<void> {
+    const product = this.products.find((p) => p.id === id);
+    if (!product) throw new Error('Product not found');
+    if (product.seller_id !== sellerId) {
+      throw new Error('Unauthorized: You can only delete your own products.');
+    }
+
+    await this.updateProduct(id, {
+      status: 'deleted',
+      active: false,
+    });
+  }
+
+  // Update seller profile details
+  public async updateSellerProfile(
+    sellerId: string,
+    updates: Partial<SellerProfile>
+  ): Promise<SellerProfile> {
+    const index = this.sellers.findIndex((s) => s.id === sellerId);
+    if (index === -1) throw new Error('Seller profile not found');
+
+    const updatedProfile = {
+      ...this.sellers[index],
+      ...updates,
+    };
+    this.sellers[index] = updatedProfile;
+    localStorage.setItem(STORAGE_SELLERS, JSON.stringify(this.sellers));
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('seller_profiles').update(updates).eq('id', sellerId);
+      } catch (err) {
+        console.warn('Supabase seller profile update:', err);
+      }
+    }
+    this.notify();
+    return updatedProfile;
+  }
+
   // --- SEARCH & FILTER ---
   public searchMarketplace(
     query: string,
@@ -372,45 +519,7 @@ class MarketplaceService {
     return updatedApp;
   }
 
-  // --- SELLER PRODUCT CREATION (PENDING APPROVAL) ---
-  public async createProduct(
-    data: Omit<Product, 'id' | 'created_at' | 'status'>
-  ): Promise<Product> {
-    const newProduct: Product = {
-      ...data,
-      id: 'prod-' + Date.now(),
-      status: 'pending_approval', // Moderation required
-      created_at: new Date().toISOString(),
-    };
 
-    this.products.unshift(newProduct);
-    localStorage.setItem(STORAGE_PRODUCTS, JSON.stringify(this.products));
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.from('products').insert([newProduct]);
-      } catch (err) {
-        console.warn('Supabase product insert:', err);
-      }
-    }
-
-    this.notify();
-    return newProduct;
-  }
-
-  public async updateProduct(id: string, updates: Partial<Product>): Promise<void> {
-    this.products = this.products.map((p) => (p.id === id ? { ...p, ...updates } : p));
-    localStorage.setItem(STORAGE_PRODUCTS, JSON.stringify(this.products));
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.from('products').update(updates).eq('id', id);
-      } catch (err) {
-        console.warn('Supabase product update:', err);
-      }
-    }
-    this.notify();
-  }
 
   // --- ADMIN MODERATION ACTIONS ---
   public async adminApproveSeller(applicationId: string, internalNotes?: string): Promise<SellerProfile> {

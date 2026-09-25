@@ -5,6 +5,18 @@ import crypto from 'crypto';
  * Route: POST /api/verify-otp
  * Body: { phone: "9876543210", token: "123456", hash: "..." }
  */
+function cleanIndianPhone(phone) {
+  let cleaned = (phone || '').replace(/\D/g, '');
+  if (cleaned.length === 12 && cleaned.startsWith('91')) {
+    cleaned = cleaned.slice(2);
+  } else if (cleaned.length === 11 && cleaned.startsWith('0')) {
+    cleaned = cleaned.slice(1);
+  } else if (cleaned.length > 10) {
+    cleaned = cleaned.slice(-10);
+  }
+  return cleaned;
+}
+
 export default async function handler(req, res) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -25,7 +37,7 @@ export default async function handler(req, res) {
 
   try {
     const { phone, token, hash } = req.body || {};
-    const cleanPhone = (phone || '').replace(/\D/g, '');
+    const cleanPhone = cleanIndianPhone(phone);
     const cleanToken = (token || '').trim();
 
     if (cleanPhone.length !== 10) {

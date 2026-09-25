@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole, SellerProfile } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { marketplaceService } from '../services/marketplaceService';
+import { normalizeIndianPhone, isValidIndianPhone } from '../utils/phone';
 
 export interface AuthContextType {
   user: User | null;
@@ -74,8 +75,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendOtp = async (
     phone: string
   ): Promise<{ success: boolean; isNewUser: boolean; error?: string }> => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+    const cleanPhone = normalizeIndianPhone(phone);
+    if (!isValidIndianPhone(cleanPhone)) {
       return { success: false, isNewUser: false, error: 'Please enter a valid 10-digit Indian mobile number.' };
     }
 
@@ -146,7 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     phone: string,
     token: string
   ): Promise<{ success: boolean; user?: User; isNewUser?: boolean; error?: string }> => {
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanPhone = normalizeIndianPhone(phone);
     const cleanToken = token.trim();
 
     if (cleanToken.length !== 6 || !/^\d{6}$/.test(cleanToken)) {
@@ -272,9 +273,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     targetPhone?: string
   ): Promise<{ success: boolean; error?: string }> => {
     const rawPhone = targetPhone || (user?.phone ? user.phone : '');
-    const cleanPhone = rawPhone.replace(/\D/g, '');
+    const cleanPhone = normalizeIndianPhone(rawPhone);
 
-    if (cleanPhone.length !== 10) {
+    if (!cleanPhone || cleanPhone.length !== 10) {
       return { success: false, error: 'Mobile number not found. Please log in first.' };
     }
 
@@ -331,8 +332,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     phone: string,
     password: string
   ): Promise<{ success: boolean; user?: User; error?: string }> => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length !== 10) {
+    const cleanPhone = normalizeIndianPhone(phone);
+    if (!isValidIndianPhone(cleanPhone)) {
       return { success: false, error: 'Please enter a valid 10-digit Indian mobile number.' };
     }
 

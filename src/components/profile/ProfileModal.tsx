@@ -24,12 +24,14 @@ import {
   ExternalLink,
   Lock,
   Package,
+  Key,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLocation } from '../../context/LocationContext';
 import { marketplaceService } from '../../services/marketplaceService';
 import { SellerApplication, Order } from '../../types';
 import { Button } from '../ui/Button';
+import { normalizeIndianPhone, formatIndianPhoneDisplay } from '../../utils/phone';
 
 export interface ProfileModalProps {
   isOpen: boolean;
@@ -39,7 +41,7 @@ export interface ProfileModalProps {
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, initialTab = 'profile' }) => {
   const navigate = useNavigate();
-  const { user, updateUser, sendOtp, verifyOtp, setPassword } = useAuth();
+  const { user, updateUser, sendOtp, verifyOtp, setPassword, loginWithPassword } = useAuth();
   const { availableCities } = useLocation();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'security' | 'seller'>(initialTab);
@@ -57,14 +59,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
   const [errorMsg, setErrorMsg] = useState('');
 
   // Password / Security State
-  // Mode: 'idle' | 'request_otp' | 'verify_otp' | 'enter_password' | 'password_success'
-  const [securityStep, setSecurityStep] = useState<'idle' | 'verify_otp' | 'enter_password'>('idle');
+  // Mode: 'idle' | 'set_password' | 'change_password' | 'verify_otp' | 'enter_new_password'
+  const [securityStep, setSecurityStep] = useState<
+    'idle' | 'set_password' | 'change_password' | 'verify_otp' | 'enter_new_password'
+  >('idle');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
-  const [newPassword, setNewPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isSettingPassword, setIsSettingPassword] = useState(false);
   const [securityFeedback, setSecurityFeedback] = useState<{ type: 'error' | 'success'; msg: string } | null>(null);
 
@@ -93,8 +101,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
         setSuccessMsg('');
         setErrorMsg('');
         setSecurityStep('idle');
-        setOtpCode('');
+        setCurrentPassword('');
         setNewPassword('');
+        setConfirmPassword('');
+        setShowCurrentPassword(false);
+        setShowPassword(false);
+        setShowConfirmPassword(false);
+        setOtpCode('');
         setSecurityFeedback(null);
 
         // Fetch seller application
@@ -134,6 +147,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
   const hasNumber = /\d/.test(newPassword);
   const hasSpecial = /[@$!%*?&#^()_+\-=[\]{};':"\\|,.<>/?]/.test(newPassword);
   const isPasswordValid = hasMinLength && hasLetter && hasNumber && hasSpecial;
+  const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
 
   // Handle image upload from file picker
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,8 +219,122 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
     }
   };
 
-  // Security: Trigger OTP to user's verified phone
-  const handleStartPasswordSetup = async () => {
+  // Reset security forms back to idle
+  const resetSecurityState = () => {
+    setSecurityStep('idle');
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowCurrentPassword(false);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setOtpCode('');
+  };
+
+  // Direct initial password setup for logged-in user (NO OTP required!)
+  const handleDirectSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isPasswordValid) {
+      setSecurityFeedback({
+        type: 'error',
+        msg: 'Please ensure your password meets all complexity requirements.',
+      });
+      return;
+    }
+    if (!passwordsMatch) {
+      setSecurityFeedback({
+        type: 'error',
+        msg: 'Passwords do not match. Please re-type your confirm password.',
+      });
+      return;
+    }
+
+    setIsSettingPassword(true);
+    setSecurityFeedback(null);
+    try {
+      const res = await setPassword(newPassword, user?.phone);
+      if (res.success) {
+        setSecurityFeedback({
+          type: 'success',
+          msg: 'Password created successfully! You can now log in using your password.',
+        });
+        resetSecurityState();
+      } else {
+        setSecurityFeedback({ type: 'error', msg: res.error || 'Failed to set password.' });
+      }
+    } catch (err: any) {
+      setSecurityFeedback({ type: 'error', msg: err.message || 'Error setting password.' });
+    } finally {
+      setIsSettingPassword(false);
+    }
+  };
+
+  // Direct password change for user who already has a password
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword.trim()) {
+      setSecurityFeedback({
+        type: 'error',
+        msg: 'Please enter your current password.',
+      });
+      return;
+    }
+    if (!isPasswordValid) {
+      setSecurityFeedback({
+        type: 'error',
+        msg: 'New password must meet all complexity requirements.',
+      });
+      return;
+    }
+    if (!passwordsMatch) {
+      setSecurityFeedback({
+        type: 'error',
+        msg: 'New passwords do not match.',
+      });
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setSecurityFeedback({
+        type: 'error',
+        msg: 'New password cannot be the same as your current password.',
+      });
+      return;
+    }
+
+    setIsSettingPassword(true);
+    setSecurityFeedback(null);
+    try {
+      // First verify the current password
+      const authRes = await loginWithPassword(user?.phone || '', currentPassword);
+      if (!authRes.success) {
+        setSecurityFeedback({
+          type: 'error',
+          msg: 'Current password incorrect. Use "Reset via SMS OTP" below if you forgot it.',
+        });
+        setIsSettingPassword(false);
+        return;
+      }
+
+      // Update to new password
+      const res = await setPassword(newPassword, user?.phone);
+      if (res.success) {
+        setSecurityFeedback({
+          type: 'success',
+          msg: 'Password updated successfully!',
+        });
+        resetSecurityState();
+      } else {
+        setSecurityFeedback({ type: 'error', msg: res.error || 'Failed to update password.' });
+      }
+    } catch (err: any) {
+      setSecurityFeedback({ type: 'error', msg: err.message || 'Error updating password.' });
+    } finally {
+      setIsSettingPassword(false);
+    }
+  };
+
+  // Security: Trigger OTP to user's verified phone for forgot-password reset
+  const handleStartOtpReset = async () => {
     if (!user?.phone) {
       setSecurityFeedback({ type: 'error', msg: 'Mobile number not linked to account.' });
       return;
@@ -215,13 +343,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
     setOtpSending(true);
     setSecurityFeedback(null);
     try {
-      const res = await sendOtp(user.phone);
+      const clean = normalizeIndianPhone(user.phone);
+      const res = await sendOtp(clean);
       if (res.success) {
         setSecurityStep('verify_otp');
         setResendTimer(30);
         setSecurityFeedback({
           type: 'success',
-          msg: `Verification code sent to ${user.phone}.`,
+          msg: `Verification code sent to ${formatIndianPhoneDisplay(user.phone)}.`,
         });
       } else {
         setSecurityFeedback({ type: 'error', msg: res.error || 'Failed to send OTP code.' });
@@ -238,12 +367,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
     if (!user?.phone || resendTimer > 0) return;
     setOtpSending(true);
     try {
-      const res = await sendOtp(user.phone);
+      const clean = normalizeIndianPhone(user.phone);
+      const res = await sendOtp(clean);
       if (res.success) {
         setResendTimer(30);
         setSecurityFeedback({
           type: 'success',
-          msg: `New verification code sent to ${user.phone}.`,
+          msg: `New verification code sent to ${formatIndianPhoneDisplay(user.phone)}.`,
         });
       } else {
         setSecurityFeedback({ type: 'error', msg: res.error || 'Failed to resend OTP.' });
@@ -264,9 +394,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
     setOtpVerifying(true);
     setSecurityFeedback(null);
     try {
-      const res = await verifyOtp(user.phone, otpCode.trim());
+      const clean = normalizeIndianPhone(user.phone);
+      const res = await verifyOtp(clean, otpCode.trim());
       if (res.success) {
-        setSecurityStep('enter_password');
+        setSecurityStep('enter_new_password');
         setSecurityFeedback({
           type: 'success',
           msg: 'Identity verified. You can now set your new password.',
@@ -281,13 +412,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
     }
   };
 
-  // Security: Save New Password
-  const handleSavePassword = async (e: React.FormEvent) => {
+  // Security: Save New Password after OTP verification
+  const handleSavePasswordAfterOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isPasswordValid) {
       setSecurityFeedback({
         type: 'error',
         msg: 'Please ensure your password meets all complexity requirements.',
+      });
+      return;
+    }
+    if (!passwordsMatch) {
+      setSecurityFeedback({
+        type: 'error',
+        msg: 'Passwords do not match.',
       });
       return;
     }
@@ -301,9 +439,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
           type: 'success',
           msg: 'Password successfully updated and secured!',
         });
-        setSecurityStep('idle');
-        setNewPassword('');
-        setOtpCode('');
+        resetSecurityState();
       } else {
         setSecurityFeedback({ type: 'error', msg: res.error || 'Failed to update password.' });
       }
@@ -771,13 +907,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
               </div>
             )}
 
-            {/* TAB 3: PASSWORD & SECURITY (STRICT OTP VERIFICATION) */}
+            {/* TAB 3: PASSWORD & SECURITY */}
             {activeTab === 'security' && (
               <div className="space-y-5">
                 {/* Security Feedback */}
                 {securityFeedback && (
                   <div
-                    className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${
+                    className={`p-3.5 rounded-2xl text-xs font-semibold flex items-center gap-2.5 ${
                       securityFeedback.type === 'success'
                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                         : 'bg-rose-50 text-rose-800 border border-rose-200'
@@ -792,122 +928,115 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
                   </div>
                 )}
 
+                {/* Linked Phone Number display card */}
+                <div className="p-3.5 rounded-2xl bg-sand-50 border border-sand-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">Linked Mobile</div>
+                      <div className="text-xs font-black text-stone-900 font-mono">
+                        {user?.phone ? formatIndianPhoneDisplay(user.phone) : 'Not provided'}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Verified
+                  </span>
+                </div>
+
                 {/* STATE 1: IDLE OVERVIEW */}
                 {securityStep === 'idle' && (
                   <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-sand-50 border border-sand-200 flex items-start justify-between gap-3">
-                      <div>
+                    <div className="p-4 rounded-2xl bg-white border border-sand-200 space-y-3 shadow-xs">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-extrabold text-stone-900">Account Password</span>
-                          {user?.password_configured ? (
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
-                              <Check className="w-3 h-3" /> Password Set
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                              Not Configured
-                            </span>
-                          )}
+                          <div className="w-8 h-8 rounded-xl bg-sand-100 flex items-center justify-center text-stone-700">
+                            <KeyRound className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-extrabold text-stone-900">Account Password</span>
+                            <div className="mt-0.5">
+                              {user?.password_configured ? (
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                  <Check className="w-3 h-3" /> Password Active
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                                  Not Configured
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-xs text-stone-500 mt-1 leading-relaxed">
-                          {user?.password_configured
-                            ? 'Your account is protected with a secure password. You can log in via SMS OTP or password.'
-                            : 'Set a password to log in directly without waiting for mobile SMS verification.'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-2xl border border-sand-200 bg-blue-50/50 space-y-3">
-                      <div className="flex items-start gap-2.5 text-xs text-blue-900">
-                        <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                        <p>
-                          <strong>Strict OTP Protection:</strong> Adding or changing your password requires 6-digit OTP verification sent to your verified mobile number <strong className="text-stone-900">{user?.phone}</strong>.
-                        </p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={handleStartPasswordSetup}
-                        disabled={otpSending}
-                        className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                      >
-                        {otpSending ? (
-                          <>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            <span>Sending OTP...</span>
-                          </>
+                      <p className="text-xs text-stone-600 leading-relaxed">
+                        {user?.password_configured
+                          ? 'Your account is secured with a password. You can sign in using your mobile number and password on any device without waiting for SMS codes.'
+                          : 'Set a password to unlock instant 1-click password login without waiting for SMS OTP every time.'}
+                      </p>
+
+                      <div className="pt-2">
+                        {user?.password_configured ? (
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSecurityFeedback(null);
+                                setSecurityStep('change_password');
+                              }}
+                              className="w-full py-2.5 rounded-xl bg-stone-900 hover:bg-black text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                              <Key className="w-3.5 h-3.5" />
+                              <span>Change Account Password</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleStartOtpReset}
+                              disabled={otpSending}
+                              className="w-full py-2 rounded-xl text-blue-600 hover:bg-blue-50 font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                            >
+                              {otpSending ? (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Sending OTP to your phone...</span>
+                                </>
+                              ) : (
+                                <span>Forgot password? Reset via SMS OTP</span>
+                              )}
+                            </button>
+                          </div>
                         ) : (
-                          <>
-                            <KeyRound className="w-3.5 h-3.5" />
-                            <span>{user?.password_configured ? 'Change Password via OTP' : 'Configure Password via OTP'}</span>
-                          </>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSecurityFeedback(null);
+                              setSecurityStep('set_password');
+                            }}
+                            className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Lock className="w-3.5 h-3.5" />
+                            <span>Set Account Password</span>
+                          </button>
                         )}
-                      </button>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* STATE 2: VERIFY OTP */}
-                {securityStep === 'verify_otp' && (
-                  <form onSubmit={handleVerifyOtp} className="space-y-4">
-                    <div className="text-center space-y-1">
-                      <h4 className="text-sm font-bold text-stone-900">Verify Mobile Number</h4>
-                      <p className="text-xs text-stone-500">
-                        Enter the 6-digit code sent to <strong className="text-stone-900">{user?.phone}</strong>
+                {/* STATE 2: DIRECT SET INITIAL PASSWORD (NO OTP REQUIRED) */}
+                {securityStep === 'set_password' && (
+                  <form onSubmit={handleDirectSetPassword} className="space-y-4 p-4 rounded-2xl bg-white border border-sand-200">
+                    <div>
+                      <h4 className="text-sm font-extrabold text-stone-900">Set Account Password</h4>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        Create a secure password for your verified account ({formatIndianPhoneDisplay(user?.phone)}).
                       </p>
                     </div>
 
-                    <div>
-                      <input
-                        type="text"
-                        maxLength={6}
-                        required
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                        placeholder="• • • • • •"
-                        className="w-full text-center tracking-[0.5em] font-mono font-black text-2xl py-3 rounded-2xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setSecurityStep('idle')}
-                        className="text-stone-500 hover:text-stone-800"
-                      >
-                        Cancel
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleResendOtp}
-                        disabled={resendTimer > 0 || otpSending}
-                        className="text-blue-600 font-bold disabled:text-stone-400 hover:underline"
-                      >
-                        {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend Code'}
-                      </button>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={otpVerifying || otpCode.length !== 6}
-                      className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      {otpVerifying ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Verifying OTP...</span>
-                        </>
-                      ) : (
-                        <span>Verify &amp; Set Password</span>
-                      )}
-                    </button>
-                  </form>
-                )}
-
-                {/* STATE 3: ENTER NEW PASSWORD */}
-                {securityStep === 'enter_password' && (
-                  <form onSubmit={handleSavePassword} className="space-y-4">
                     <div>
                       <label className="block text-xs font-bold text-stone-700 mb-1.5">
                         New Password
@@ -918,8 +1047,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
                           required
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="Create a strong password"
-                          className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
+                          placeholder="Enter new password"
+                          className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium"
                         />
                         <button
                           type="button"
@@ -931,8 +1060,36 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
                       </div>
                     </div>
 
-                    {/* Live Criteria Badges */}
-                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                        Confirm New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Re-type new password"
+                          className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {confirmPassword && (
+                        <p className={`text-[11px] mt-1 font-semibold ${passwordsMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {passwordsMatch ? '✓ Passwords match' : '✗ Passwords do not match'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Criteria Badges */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 p-2.5 rounded-xl bg-sand-50 border border-sand-200">
                       <div className={`flex items-center gap-1.5 ${hasMinLength ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
                         <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasMinLength ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
                           ✓
@@ -962,14 +1119,334 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
                     <div className="pt-2 flex items-center justify-end gap-3">
                       <button
                         type="button"
-                        onClick={() => setSecurityStep('idle')}
+                        onClick={resetSecurityState}
                         className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-sand-100"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        disabled={!isPasswordValid || isSettingPassword}
+                        disabled={!isPasswordValid || !passwordsMatch || isSettingPassword}
+                        className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
+                      >
+                        {isSettingPassword ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Saving Password...</span>
+                          </>
+                        ) : (
+                          <span>Save Password</span>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* STATE 3: DIRECT CHANGE PASSWORD (WITH CURRENT PASSWORD) */}
+                {securityStep === 'change_password' && (
+                  <form onSubmit={handleChangePassword} className="space-y-4 p-4 rounded-2xl bg-white border border-sand-200">
+                    <div>
+                      <h4 className="text-sm font-extrabold text-stone-900">Change Account Password</h4>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        Enter your current password followed by your new password.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                        Current Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showCurrentPassword ? 'text' : 'password'}
+                          required
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="Enter your existing password"
+                          className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                        >
+                          {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <div className="mt-1 text-right">
+                        <button
+                          type="button"
+                          onClick={handleStartOtpReset}
+                          className="text-[11px] font-semibold text-blue-600 hover:underline cursor-pointer"
+                        >
+                          Forgot current password? Reset via SMS OTP
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                        New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Create a new password"
+                          className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                        Confirm New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Re-type new password"
+                          className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {confirmPassword && (
+                        <p className={`text-[11px] mt-1 font-semibold ${passwordsMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {passwordsMatch ? '✓ Passwords match' : '✗ Passwords do not match'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Criteria Badges */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 p-2.5 rounded-xl bg-sand-50 border border-sand-200">
+                      <div className={`flex items-center gap-1.5 ${hasMinLength ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasMinLength ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>6+ characters</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${hasLetter ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasLetter ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>Contains letter</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${hasNumber ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasNumber ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>Contains number</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${hasSpecial ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasSpecial ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>Special character (@$!%*?&#)</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={resetSecurityState}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-sand-100"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!currentPassword || !isPasswordValid || !passwordsMatch || isSettingPassword}
+                        className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
+                      >
+                        {isSettingPassword ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Updating...</span>
+                          </>
+                        ) : (
+                          <span>Update Password</span>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* STATE 4: VERIFY OTP (FOR FORGOT PASSWORD) */}
+                {securityStep === 'verify_otp' && (
+                  <form onSubmit={handleVerifyOtp} className="space-y-4 p-4 rounded-2xl bg-white border border-sand-200">
+                    <div className="text-center space-y-1">
+                      <h4 className="text-sm font-extrabold text-stone-900">Verify Mobile Number</h4>
+                      <p className="text-xs text-stone-500">
+                        Enter the 6-digit code sent to <strong className="text-stone-900">{user?.phone ? formatIndianPhoneDisplay(user.phone) : ''}</strong>
+                      </p>
+                    </div>
+
+                    <div>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        required
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="• • • • • •"
+                        className="w-full text-center tracking-[0.5em] font-mono font-black text-2xl py-3 rounded-2xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <button
+                        type="button"
+                        onClick={resetSecurityState}
+                        className="text-stone-500 hover:text-stone-800"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={resendTimer > 0 || otpSending}
+                        className="text-blue-600 font-bold disabled:text-stone-400 hover:underline cursor-pointer"
+                      >
+                        {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend Code'}
+                      </button>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={otpVerifying || otpCode.length !== 6}
+                      className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {otpVerifying ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Verifying OTP...</span>
+                        </>
+                      ) : (
+                        <span>Verify &amp; Continue</span>
+                      )}
+                    </button>
+                  </form>
+                )}
+
+                {/* STATE 5: ENTER NEW PASSWORD AFTER OTP */}
+                {securityStep === 'enter_new_password' && (
+                  <form onSubmit={handleSavePasswordAfterOtp} className="space-y-4 p-4 rounded-2xl bg-white border border-sand-200">
+                    <div>
+                      <h4 className="text-sm font-extrabold text-stone-900">Set New Password</h4>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        Your mobile is verified. Create your new account password.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                        New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                          className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                        Confirm New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Re-type new password"
+                          className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-sand-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {confirmPassword && (
+                        <p className={`text-[11px] mt-1 font-semibold ${passwordsMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {passwordsMatch ? '✓ Passwords match' : '✗ Passwords do not match'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Criteria Badges */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 p-2.5 rounded-xl bg-sand-50 border border-sand-200">
+                      <div className={`flex items-center gap-1.5 ${hasMinLength ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasMinLength ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>6+ characters</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${hasLetter ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasLetter ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>Contains letter</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${hasNumber ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasNumber ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>Contains number</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${hasSpecial ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${hasSpecial ? 'bg-emerald-600 text-white' : 'bg-sand-200 text-stone-500'}`}>
+                          ✓
+                        </div>
+                        <span>Special character (@$!%*?&#)</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={resetSecurityState}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-sand-100"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!isPasswordValid || !passwordsMatch || isSettingPassword}
                         className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
                       >
                         {isSettingPassword ? (

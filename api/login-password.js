@@ -1,5 +1,17 @@
 import crypto from 'crypto';
 
+function cleanIndianPhone(phone) {
+  let cleaned = (phone || '').replace(/\D/g, '');
+  if (cleaned.length === 12 && cleaned.startsWith('91')) {
+    cleaned = cleaned.slice(2);
+  } else if (cleaned.length === 11 && cleaned.startsWith('0')) {
+    cleaned = cleaned.slice(1);
+  } else if (cleaned.length > 10) {
+    cleaned = cleaned.slice(-10);
+  }
+  return cleaned;
+}
+
 /**
  * Selluy Password Login Serverless Function (Vercel)
  * Route: POST /api/login-password
@@ -25,9 +37,9 @@ export default async function handler(req, res) {
 
   try {
     const { phone, password, storedHash } = req.body || {};
-    const cleanPhone = (phone || '').replace(/\D/g, '');
+    const cleanPhone = cleanIndianPhone(phone);
 
-    if (cleanPhone.length !== 10) {
+    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
       return res.status(400).json({ success: false, error: 'Invalid 10-digit mobile number.' });
     }
 

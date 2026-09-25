@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { SelluyLogo } from '../common/SelluyLogo';
 import { Button } from '../ui/Button';
+import { normalizeIndianPhone, isValidIndianPhone } from '../../utils/phone';
 
 export interface AuthModalProps {
   isOpen: boolean;
@@ -74,7 +75,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         localStorage.getItem('selluy_last_phone') ||
         '';
 
-      const cleanPhone = savedPhone.replace(/\D/g, '').slice(0, 10);
+      const cleanPhone = normalizeIndianPhone(savedPhone);
       setPhone(cleanPhone);
       setPasswordInput('');
       setShowPassword(false);
@@ -114,9 +115,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Phone input formatting
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '');
-    if (raw.length <= 10) {
-      setPhone(raw);
+    const raw = e.target.value;
+    const clean = normalizeIndianPhone(raw);
+    if (clean.length <= 10) {
+      setPhone(clean);
       setErrorMsg('');
     }
   };
@@ -154,7 +156,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMsg('');
 
-    if (phone.length !== 10 || !/^[6-9]\d{9}$/.test(phone)) {
+    const clean = normalizeIndianPhone(phone);
+    if (!isValidIndianPhone(clean)) {
       setErrorMsg('Please enter a valid 10-digit Indian mobile number.');
       return;
     }
@@ -166,9 +169,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await loginWithPassword(phone, password);
+      const res = await loginWithPassword(clean, password);
       if (res.success) {
-        localStorage.setItem('selluy_last_phone', phone);
+        localStorage.setItem('selluy_last_phone', clean);
         setSuccessNotice('Welcome back! Logging in...');
         setScreen('success');
         setTimeout(() => {
@@ -187,14 +190,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMsg('');
 
-    if (phone.length !== 10 || !/^[6-9]\d{9}$/.test(phone)) {
+    const clean = normalizeIndianPhone(phone);
+    if (!isValidIndianPhone(clean)) {
       setErrorMsg('Please enter a valid 10-digit Indian mobile number.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const res = await sendOtp(phone);
+      const res = await sendOtp(clean);
       if (res.success) {
         setScreen('otp-verify');
         setCooldown(45);
@@ -262,8 +266,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const res = await setPassword(newPassword, phone);
+      const clean = normalizeIndianPhone(phone);
+      const res = await setPassword(newPassword, clean);
       if (res.success) {
+        localStorage.setItem('selluy_last_phone', clean);
         setSuccessNotice('Password set! Logging into Selluy...');
         setScreen('success');
         setTimeout(() => {
@@ -291,14 +297,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMsg('');
 
-    if (phone.length !== 10 || !/^[6-9]\d{9}$/.test(phone)) {
+    const clean = normalizeIndianPhone(phone);
+    if (!isValidIndianPhone(clean)) {
       setErrorMsg('Please enter a valid 10-digit Indian mobile number.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const res = await sendOtp(phone);
+      const res = await sendOtp(clean);
       if (res.success) {
         setScreen('forgot-otp');
         setCooldown(45);
@@ -323,7 +330,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const res = await verifyOtp(phone, token);
+      const clean = normalizeIndianPhone(phone);
+      const res = await verifyOtp(clean, token);
       if (res.success) {
         // Identity verified via OTP. Now allow creating new password.
         setScreen('forgot-reset');
@@ -351,7 +359,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const res = await setPassword(newPassword, phone);
+      const clean = normalizeIndianPhone(phone);
+      const res = await setPassword(newPassword, clean);
       if (res.success) {
         localStorage.setItem('selluy_last_phone', phone);
         setSuccessNotice('Password successfully updated! Logging you in...');

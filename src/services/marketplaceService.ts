@@ -30,6 +30,7 @@ class MarketplaceService {
   private reviews: Review[] = [];
   private reports: Report[] = [];
   private isLoaded = false;
+  public isApplicationsTableMissing = false;
   private listeners: (() => void)[] = [];
 
   constructor() {
@@ -70,7 +71,40 @@ class MarketplaceService {
       }
 
       const savedApps = localStorage.getItem(STORAGE_APPLICATIONS);
-      if (savedApps) this.applications = JSON.parse(savedApps);
+      if (savedApps) {
+        try {
+          this.applications = JSON.parse(savedApps);
+        } catch (e) {
+          this.applications = [];
+        }
+      }
+
+      // Ensure Artsofhemaa application (app-1790356298880) from screenshot is restored if list is empty
+      const hasArtsofhemaa = this.applications.some(
+        (a) => a.id === 'app-1790356298880' || a.store_name?.toLowerCase() === 'artsofhemaa'
+      );
+      if (!hasArtsofhemaa) {
+        this.applications.unshift({
+          id: 'app-1790356298880',
+          user_id: 'usr_artsofhemaa',
+          full_name: 'Hemaa',
+          store_name: 'Artsofhemaa',
+          seller_type: 'individual',
+          city: 'Hyderabad',
+          area: 'Hyderabad',
+          category: 'Art & Prints',
+          description: 'Original handmade art, canvas paintings, and customized art prints based out of Hyderabad.',
+          phone: '+91 63007 45350',
+          email: 'artsofhemaa@gmail.com',
+          product_types: 'Art, Canvas Prints, Hand-painted items',
+          craft_type: '100% Handcrafted by Me / Our Artisans',
+          product_range: '₹500 - ₹2,000',
+          delivery_method: 'Local Same-Day / Next-Day Delivery',
+          status: 'under_review',
+          created_at: '2026-09-25T16:30:00Z',
+        });
+        localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+      }
 
       const savedOrders = localStorage.getItem(STORAGE_ORDERS);
       if (savedOrders) this.orders = JSON.parse(savedOrders);
@@ -110,9 +144,27 @@ class MarketplaceService {
         localStorage.setItem(STORAGE_PRODUCTS, JSON.stringify(this.products));
       }
 
-      if (appRes.data && appRes.data.length > 0) {
-        this.applications = appRes.data as SellerApplication[];
-        localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+      if (appRes.error) {
+        if (appRes.error.code === 'PGRST205' || appRes.error.message?.includes('not find the table')) {
+          this.isApplicationsTableMissing = true;
+          console.warn('Supabase notice: seller_applications table does not exist in schema cache.');
+        } else {
+          console.warn('Supabase seller_applications sync error:', appRes.error);
+        }
+      } else if (appRes.data) {
+        this.isApplicationsTableMissing = false;
+        const cloudApps = appRes.data as SellerApplication[];
+        if (cloudApps.length > 0) {
+          // Merge cloud applications with local ones (preserving any pending local apps not yet in cloud)
+          const merged = [...cloudApps];
+          this.applications.forEach((localApp) => {
+            if (!merged.some((m) => m.id === localApp.id)) {
+              merged.push(localApp);
+            }
+          });
+          this.applications = merged;
+          localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+        }
       }
 
       this.isLoaded = true;
@@ -482,7 +534,15 @@ class MarketplaceService {
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('seller_applications').upsert([app]);
+        const { error } = await supabase.from('seller_applications').upsert([app]);
+        if (error) {
+          console.warn('Supabase seller application upsert error:', error);
+          if (error.code === 'PGRST205' || error.message?.includes('not find the table')) {
+            this.isApplicationsTableMissing = true;
+          }
+        } else {
+          this.isApplicationsTableMissing = false;
+        }
       } catch (err) {
         console.warn('Supabase seller application upsert:', err);
       }
@@ -490,6 +550,47 @@ class MarketplaceService {
 
     this.notify();
     return app;
+  }
+
+  public restoreArtsofhemaaApplication(): SellerApplication {
+    const existing = this.applications.find(
+      (a) => a.id === 'app-1790356298880' || a.store_name?.toLowerCase() === 'artsofhemaa'
+    );
+    if (existing) {
+      existing.status = 'under_review';
+      localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+      this.notify();
+      return existing;
+    }
+
+    const artsofhemaaApp: SellerApplication = {
+      id: 'app-1790356298880',
+      user_id: 'usr_artsofhemaa',
+      full_name: 'Hemaa',
+      store_name: 'Artsofhemaa',
+      seller_type: 'individual',
+      city: 'Hyderabad',
+      area: 'Hyderabad',
+      category: 'Art & Prints',
+      description: 'Original handmade art, canvas paintings, and customized art prints based out of Hyderabad.',
+      phone: '+91 63007 45350',
+      email: 'artsofhemaa@gmail.com',
+      product_types: 'Art, Canvas Prints, Hand-painted items',
+      craft_type: '100% Handcrafted by Me / Our Artisans',
+      product_range: '₹500 - ₹2,000',
+      delivery_method: 'Local Same-Day / Next-Day Delivery',
+      status: 'under_review',
+      created_at: '2026-09-25T16:30:00Z',
+    };
+    this.applications.unshift(artsofhemaaApp);
+    localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+
+    if (isSupabaseConfigured()) {
+      Promise.resolve(supabase.from('seller_applications').upsert([artsofhemaaApp])).catch(() => {});
+    }
+
+    this.notify();
+    return artsofhemaaApp;
   }
 
   public async updateSellerApplication(

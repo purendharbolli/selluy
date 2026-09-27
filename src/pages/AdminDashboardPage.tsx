@@ -28,6 +28,10 @@ import {
   X,
   FileText,
   Save,
+  RefreshCw,
+  Database,
+  Copy,
+  CheckCheck,
 } from 'lucide-react';
 import { marketplaceService } from '../services/marketplaceService';
 import { SellerProfile, Product, Category, SellerApplication, Order } from '../types';
@@ -36,6 +40,85 @@ import { POPULAR_INDIAN_CITIES } from '../components/common/CityOnboardingModal'
 import { Tabs } from '../components/ui/Tabs';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+
+const SQL_FIX_SCRIPT = `-- =========================================================
+-- SELLUY: FIX SELLER APPLICATIONS & RESTORE 'Artsofhemaa'
+-- Copy this ENTIRE script -> Paste into Supabase SQL Editor -> Click RUN
+-- =========================================================
+
+-- 1. Create the seller_applications table
+create table if not exists public.seller_applications (
+  id text primary key,
+  user_id text not null,
+  full_name text not null,
+  store_name text not null,
+  seller_type text check (seller_type in ('individual', 'small_business', 'local_store', 'brand')) default 'individual',
+  city text not null,
+  area text,
+  business_address text,
+  state text default 'Telangana',
+  pincode text,
+  category text not null,
+  description text not null,
+  phone text not null,
+  email text,
+  social_media_url text,
+  website_url text,
+  product_types text,
+  craft_type text,
+  product_range text,
+  delivery_method text,
+  product_samples text[] default '{}',
+  verification_id_type text default 'aadhaar',
+  government_id_front text,
+  government_id_back text,
+  documents jsonb default '{}'::jsonb,
+  status text not null check (status in ('draft', 'pending', 'submitted', 'under_review', 'approved', 'rejected')) default 'under_review',
+  rejection_reason text,
+  internal_notes text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- 2. Enable Row Level Security (RLS) with open policies so all devices can sync
+alter table public.seller_applications enable row level security;
+drop policy if exists "Public insert seller applications" on public.seller_applications;
+drop policy if exists "Public read seller applications" on public.seller_applications;
+drop policy if exists "Public update seller applications" on public.seller_applications;
+drop policy if exists "Public delete seller applications" on public.seller_applications;
+
+create policy "Public insert seller applications" on public.seller_applications for insert with check (true);
+create policy "Public read seller applications" on public.seller_applications for select using (true);
+create policy "Public update seller applications" on public.seller_applications for update using (true);
+create policy "Public delete seller applications" on public.seller_applications for delete using (true);
+
+-- 3. Fix RLS on users table so phone logins & registrations can persist
+alter table public.users enable row level security;
+drop policy if exists "Public users access" on public.users;
+drop policy if exists "Public users insert" on public.users;
+drop policy if exists "Public users update" on public.users;
+
+create policy "Public users access" on public.users for select using (true);
+create policy "Public users insert" on public.users for insert with check (true);
+create policy "Public users update" on public.users for update using (true);
+
+-- 4. Restore the applicant's submitted application from screenshot ('Artsofhemaa')
+insert into public.seller_applications (
+  id, user_id, full_name, store_name, seller_type, city, area, category,
+  description, phone, email, product_types, craft_type, product_range,
+  delivery_method, status, created_at
+) values (
+  'app-1790356298880', 'usr_artsofhemaa', 'Hemaa', 'Artsofhemaa', 'individual',
+  'Hyderabad', 'Hyderabad', 'Art & Prints',
+  'Original handmade art, canvas paintings, and customized art prints based out of Hyderabad.',
+  '+91 63007 45350', 'artsofhemaa@gmail.com', 'Art, Canvas Prints, Hand-painted items',
+  '100% Handcrafted by Me / Our Artisans', '₹500 - ₹2,000',
+  'Local Same-Day / Next-Day Delivery', 'under_review', '2026-09-25T16:30:00Z'
+) on conflict (id) do update set
+  status = excluded.status,
+  store_name = excluded.store_name,
+  category = excluded.category;
+`;
 
 export const AdminDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'products' | 'sellers' | 'orders' | 'cities'>('overview');
@@ -47,6 +130,8 @@ export const AdminDashboardPage: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>(marketplaceService.getCategories());
 
   const [toastMsg, setToastMsg] = useState('');
+  const [showSqlModal, setShowSqlModal] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
 
   // Seller Application Review Modal State
   const [selectedApp, setSelectedApp] = useState<SellerApplication | null>(null);
@@ -313,12 +398,56 @@ export const AdminDashboardPage: React.FC = () => {
           transition={{ duration: 0.2 }}
           className="bg-white rounded-3xl border border-sand-200 shadow-soft-sm overflow-hidden"
         >
-          <div className="p-4 border-b border-sand-100 flex items-center justify-between">
-            <h3 className="font-bold text-sm text-stone-900">Seller Onboarding Applications</h3>
-            <span className="text-xs text-stone-500 font-medium">
-              {pendingApplications.length} awaiting review
-            </span>
+          <div className="p-4 border-b border-sand-100 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-bold text-sm text-stone-900">Seller Onboarding Applications</h3>
+              <p className="text-xs text-stone-500 font-medium">
+                {pendingApplications.length} awaiting review
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const restored = marketplaceService.restoreArtsofhemaaApplication();
+                  refreshAdminData();
+                  showToast(`Restored application: ${restored.store_name}`);
+                }}
+                className="text-xs text-blue-700 border-blue-200 hover:bg-blue-50 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                Restore 'Artsofhemaa'
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowSqlModal(true)}
+                className="text-xs text-amber-800 border-amber-300 bg-amber-50 hover:bg-amber-100 cursor-pointer"
+              >
+                <Database className="w-3.5 h-3.5 mr-1.5" />
+                Supabase Cloud Fix
+              </Button>
+            </div>
           </div>
+
+          {marketplaceService.isApplicationsTableMissing && (
+            <div className="m-4 p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start justify-between gap-3 text-xs text-amber-900">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-bold">Supabase Cloud Sync Notice:</span> The <code>seller_applications</code> table is not yet created in your Supabase project. Applications are temporarily stored in local browser cache. Click <strong>Supabase Cloud Fix</strong> to run the SQL migration so all devices sync instantly.
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setShowSqlModal(true)}
+                className="bg-amber-600 hover:bg-amber-500 text-white shrink-0 text-xs h-7"
+              >
+                View SQL Fix
+              </Button>
+            </div>
+          )}
 
           {applications.length === 0 ? (
             <div className="p-12 text-center text-xs text-stone-500">
@@ -1064,6 +1193,102 @@ export const AdminDashboardPage: React.FC = () => {
               >
                 <X className="w-4 h-4" />
               </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 4. SUPABASE CLOUD SQL FIX MODAL */}
+      <AnimatePresence>
+        {showSqlModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-sm"
+            onClick={() => setShowSqlModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-sand-200 max-h-[88vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between pb-4 border-b border-sand-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-extrabold text-stone-900">
+                      Supabase Cloud Database Fix
+                    </h4>
+                    <p className="text-xs text-stone-500">
+                      Run this script in your Supabase SQL Editor to enable cross-device cloud sync for all seller applications.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSqlModal(false)}
+                  className="w-8 h-8 rounded-full bg-sand-100 hover:bg-sand-200 text-stone-600 flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="my-4 p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-900 space-y-1">
+                <p className="font-bold">Instructions:</p>
+                <ol className="list-decimal pl-4 space-y-0.5 text-[11px] text-blue-800">
+                  <li>Click <strong>Copy SQL</strong> below.</li>
+                  <li>Open your <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline font-bold hover:text-blue-950">Supabase Dashboard</a> and go to the <strong>SQL Editor</strong> tab.</li>
+                  <li>Paste the SQL script and click <strong>RUN</strong>.</li>
+                </ol>
+              </div>
+
+              <div className="relative flex-1 min-h-[220px] rounded-2xl bg-stone-900 border border-stone-800 p-4 font-mono text-[11px] text-emerald-400 overflow-y-auto leading-relaxed select-all">
+                <pre>{SQL_FIX_SCRIPT}</pre>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-sand-100 gap-3">
+                <a
+                  href="https://supabase.com/dashboard"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-stone-600 hover:text-stone-900 font-semibold"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open Supabase Dashboard
+                </a>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowSqlModal(false)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(SQL_FIX_SCRIPT);
+                      setCopiedSql(true);
+                      setTimeout(() => setCopiedSql(false), 2500);
+                      showToast('SQL script copied to clipboard!');
+                    }}
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+                  >
+                    {copiedSql ? (
+                      <>
+                        <CheckCheck className="w-3.5 h-3.5 mr-1.5 text-emerald-300" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 mr-1.5" />
+                        Copy SQL
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

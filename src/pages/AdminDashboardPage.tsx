@@ -132,48 +132,6 @@ create policy "Public insert seller applications" on public.seller_applications 
 create policy "Public read seller applications" on public.seller_applications for select using (true);
 create policy "Public update seller applications" on public.seller_applications for update using (true);
 create policy "Public delete seller applications" on public.seller_applications for delete using (true);
-
--- 7. Restore the applicant's submitted application from screenshot ('Artsofhemaa' - app-1790356298880)
-insert into public.seller_applications (
-  id,
-  user_id,
-  full_name,
-  store_name,
-  seller_type,
-  city,
-  area,
-  category,
-  description,
-  phone,
-  email,
-  product_types,
-  craft_type,
-  product_range,
-  delivery_method,
-  status,
-  created_at
-) values (
-  'app-1790356298880',
-  'usr_artsofhemaa',
-  'Hemaa',
-  'Artsofhemaa',
-  'individual',
-  'Hyderabad',
-  'Hyderabad',
-  'Art & Prints',
-  'Original handmade art, canvas paintings, and customized art prints based out of Hyderabad.',
-  '+91 63007 45350',
-  'artsofhemaa@gmail.com',
-  'Art, Canvas Prints, Hand-painted items',
-  '100% Handcrafted by Me / Our Artisans',
-  '₹500 - ₹2,000',
-  'Local Same-Day / Next-Day Delivery',
-  'under_review',
-  '2026-09-25T16:30:00Z'
-) on conflict (id) do update set
-  status = excluded.status,
-  store_name = excluded.store_name,
-  category = excluded.category;
 `;
 
 export const AdminDashboardPage: React.FC = () => {
@@ -301,6 +259,22 @@ export const AdminDashboardPage: React.FC = () => {
       await marketplaceService.adminDeleteProduct(prodId);
       refreshAdminData();
       showToast('Product removed.');
+    }
+  };
+
+  const handleDeleteApplication = async (appId: string, storeName: string) => {
+    if (window.confirm(`Permanently delete seller application for "${storeName}"?`)) {
+      await marketplaceService.adminDeleteApplication(appId);
+      refreshAdminData();
+      showToast(`Deleted application for ${storeName}`);
+    }
+  };
+
+  const handleDeleteSeller = async (sellerId: string, storeName: string) => {
+    if (window.confirm(`Remove "${storeName}" from verified sellers?`)) {
+      await marketplaceService.adminDeleteSeller(sellerId);
+      refreshAdminData();
+      showToast(`Removed ${storeName} from verified sellers`);
     }
   };
 
@@ -465,15 +439,31 @@ export const AdminDashboardPage: React.FC = () => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  const restored = marketplaceService.restoreArtsofhemaaApplication();
+                onClick={async () => {
+                  await marketplaceService.syncFromSupabase();
                   refreshAdminData();
-                  showToast(`Restored application: ${restored.store_name}`);
+                  showToast('Re-synced applications with cloud database.');
                 }}
                 className="text-xs text-blue-700 border-blue-200 hover:bg-blue-50 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                Restore 'Artsofhemaa'
+                Sync Cloud
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (window.confirm('Clear local application cache and fetch fresh from Supabase?')) {
+                    marketplaceService.clearAllLocalApplications();
+                    marketplaceService.syncFromSupabase();
+                    refreshAdminData();
+                    showToast('Applications cache cleared.');
+                  }
+                }}
+                className="text-xs text-stone-600 border-sand-300 hover:bg-sand-100 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1.5 text-stone-500" />
+                Clear Local
               </Button>
               <Button
                 size="sm"
@@ -482,7 +472,7 @@ export const AdminDashboardPage: React.FC = () => {
                 className="text-xs text-amber-800 border-amber-300 bg-amber-50 hover:bg-amber-100 cursor-pointer"
               >
                 <Database className="w-3.5 h-3.5 mr-1.5" />
-                Supabase Cloud Fix
+                Supabase Fix
               </Button>
             </div>
           </div>
@@ -594,6 +584,16 @@ export const AdminDashboardPage: React.FC = () => {
                         Reject
                       </Button>
                     )}
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDeleteApplication(app.id, app.store_name)}
+                      className="text-stone-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 h-8 px-2 cursor-pointer"
+                      title="Delete application"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -720,29 +720,60 @@ export const AdminDashboardPage: React.FC = () => {
           transition={{ duration: 0.2 }}
           className="bg-white rounded-3xl border border-sand-200 shadow-soft-sm overflow-hidden"
         >
-          <div className="p-4 border-b border-sand-100">
+          <div className="p-4 border-b border-sand-100 flex items-center justify-between">
             <h3 className="font-bold text-sm text-stone-900">Verified Seller Roster</h3>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                await marketplaceService.syncFromSupabase();
+                refreshAdminData();
+                showToast('Re-synced sellers with cloud database.');
+              }}
+              className="text-xs text-blue-700 border-blue-200 hover:bg-blue-50 cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              Sync Cloud
+            </Button>
           </div>
 
           <div className="divide-y divide-sand-100">
-            {sellers.map((s) => (
-              <div key={s.id} className="p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <img src={s.logo} alt={s.store_name} className="w-10 h-10 rounded-xl object-cover border border-sand-200" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="text-sm font-bold text-stone-900">{s.store_name}</h4>
-                      <VerifiedBadge size="sm" showText={false} />
+            {sellers.length === 0 ? (
+              <div className="p-8 text-center text-xs text-stone-500">
+                <Store className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+                No verified sellers yet.
+              </div>
+            ) : (
+              sellers.map((s) => (
+                <div key={s.id} className="p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <img src={s.logo} alt={s.store_name} className="w-10 h-10 rounded-xl object-cover border border-sand-200" />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="text-sm font-bold text-stone-900">{s.store_name}</h4>
+                        <VerifiedBadge size="sm" showText={false} />
+                      </div>
+                      <p className="text-xs text-stone-500">{s.city} • {s.category_focus}</p>
                     </div>
-                    <p className="text-xs text-stone-500">{s.city} • {s.category_focus}</p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Badge variant="success" size="sm">
+                      Verified
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDeleteSeller(s.id, s.store_name)}
+                      className="text-stone-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 h-7 px-2 cursor-pointer"
+                      title="Remove seller"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                 </div>
-
-                <Badge variant="success" size="sm">
-                  Verified
-                </Badge>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </motion.div>
       )}

@@ -29,6 +29,7 @@ import { marketplaceService } from '../services/marketplaceService';
 import { SellerType, SellerApplication } from '../types';
 import { POPULAR_INDIAN_CITIES } from '../components/common/CityOnboardingModal';
 import { AuthModal } from '../components/auth/AuthModal';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const DRAFT_STORAGE_KEY = 'selluy_seller_draft_v2';
 
@@ -136,43 +137,85 @@ export const SellerOnboardingPage: React.FC = () => {
 
   // Check for existing application and load draft
   useEffect(() => {
-    if (user) {
-      const app = marketplaceService.getApplicationByUserId(user.id, user.phone);
-      if (app) {
-        setExistingApp(app);
+    let isMounted = true;
+
+    const checkExisting = async () => {
+      if (!user) return;
+
+      // 1. Check local in-memory/localStorage cache
+      const localApp = marketplaceService.getApplicationByUserId(user.id, user.phone);
+      if (localApp && isMounted) {
+        setExistingApp(localApp);
+        return;
       }
 
-      // Check draft storage
-      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-      if (savedDraft) {
+      // 2. Query Supabase directly in case local cache is empty or still syncing
+      if (isSupabaseConfigured()) {
         try {
-          const parsed = JSON.parse(savedDraft);
-          setFormData((prev) => ({
-            ...prev,
-            ...parsed,
-            // Ensure phone and name use authenticated user if not set
-            phone: parsed.phone || user.phone || '',
-            full_name: parsed.full_name || user.name || '',
-            email: parsed.email || user.email || '',
-            city: parsed.city || user.city || 'Hyderabad',
-          }));
-          setHasDraftRestored(true);
-          return;
+          const cleanPhone = user.phone ? user.phone.replace(/\D/g, '').slice(-10) : '';
+          const filters = [`user_id.eq.${user.id}`];
+          if (cleanPhone) {
+            filters.push(`phone.ilike.%${cleanPhone}%`);
+          }
+          const { data, error } = await supabase
+            .from('seller_applications')
+            .select('*')
+            .or(filters.join(','))
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (!error && data && isMounted) {
+            const cloudApp = data as SellerApplication;
+            setExistingApp(cloudApp);
+            marketplaceService.addOrUpdateApplication(cloudApp);
+            return;
+          }
         } catch (e) {
-          console.warn('Failed to parse draft:', e);
+          console.warn('Error fetching application on load:', e);
         }
       }
 
-      // If no draft but user exists, prefill from user
-      setFormData((prev) => ({
-        ...prev,
-        full_name: prev.full_name || user.name || '',
-        phone: prev.phone || user.phone || '',
-        email: prev.email || user.email || '',
-        city: prev.city || user.city || 'Hyderabad',
-        business_address: prev.business_address || user.address || '',
-      }));
-    }
+      // 3. If no existing application, check draft storage
+      if (isMounted) {
+        const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (savedDraft) {
+          try {
+            const parsed = JSON.parse(savedDraft);
+            setFormData((prev) => ({
+              ...prev,
+              ...parsed,
+              // Ensure phone and name use authenticated user if not set
+              phone: parsed.phone || user.phone || '',
+              full_name: parsed.full_name || user.name || '',
+              email: parsed.email || user.email || '',
+              city: parsed.city || user.city || 'Hyderabad',
+            }));
+            setHasDraftRestored(true);
+            return;
+          } catch (e) {
+            console.warn('Failed to parse draft:', e);
+          }
+        }
+
+        // 4. If no draft but user exists, prefill from user
+        setFormData((prev) => ({
+          ...prev,
+          full_name: prev.full_name || user.name || '',
+          phone: prev.phone || user.phone || '',
+          email: prev.email || user.email || '',
+          city: prev.city || user.city || 'Hyderabad',
+          business_address: prev.business_address || user.address || '',
+        }));
+      }
+    };
+
+    checkExisting();
+    const unsub = marketplaceService.subscribe(checkExisting);
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, [user]);
 
   // Autosave draft on form change (only when authenticated and not submitted)

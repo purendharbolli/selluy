@@ -51,6 +51,32 @@ class MarketplaceService {
     this.listeners.forEach((l) => l());
   }
 
+  private safeSaveApplications() {
+    try {
+      localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+    } catch (quotaErr) {
+      console.warn('localStorage quota reached for full applications; caching lightweight copy without large base64 strings:', quotaErr);
+      try {
+        // Strip large data URLs so metadata, status, store name, phone, etc. still persist offline in localStorage
+        const lightweight = this.applications.map((app) => ({
+          ...app,
+          product_samples: (app.product_samples || []).map((s) => (s && s.length > 500 ? '[cloud_image]' : s)),
+          government_id_front:
+            app.government_id_front && app.government_id_front.length > 500
+              ? '[cloud_doc]'
+              : app.government_id_front,
+          government_id_back:
+            app.government_id_back && app.government_id_back.length > 500
+              ? '[cloud_doc]'
+              : app.government_id_back,
+        }));
+        localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(lightweight));
+      } catch (e) {
+        console.warn('Could not save lightweight applications to localStorage:', e);
+      }
+    }
+  }
+
   private initLocal() {
     try {
       const savedProds = localStorage.getItem(STORAGE_PRODUCTS);
@@ -86,7 +112,7 @@ class MarketplaceService {
       if (!hasArtsofhemaa) {
         this.applications.unshift({
           id: 'app-1790356298880',
-          user_id: 'usr_artsofhemaa',
+          user_id: 'usr_6300745350',
           full_name: 'Hemaa',
           store_name: 'Artsofhemaa',
           seller_type: 'individual',
@@ -103,7 +129,7 @@ class MarketplaceService {
           status: 'under_review',
           created_at: '2026-09-25T16:30:00Z',
         });
-        localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+        this.safeSaveApplications();
       }
 
       const savedOrders = localStorage.getItem(STORAGE_ORDERS);
@@ -163,7 +189,7 @@ class MarketplaceService {
             }
           });
           this.applications = merged;
-          localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+          this.safeSaveApplications();
         }
       }
 
@@ -497,14 +523,27 @@ class MarketplaceService {
     return this.applications;
   }
 
-  public getApplicationByUserId(userId: string): SellerApplication | undefined {
-    return this.applications.find((a) => a.user_id === userId);
+  public getApplicationByUserId(userId: string, phone?: string): SellerApplication | undefined {
+    const cleanUserPhone = phone ? phone.replace(/\D/g, '').slice(-10) : '';
+    const cleanUserIdPhone = userId ? userId.replace(/\D/g, '').slice(-10) : '';
+
+    return this.applications.find((a) => {
+      if (a.user_id === userId) return true;
+      if (cleanUserPhone && a.phone && a.phone.replace(/\D/g, '').slice(-10) === cleanUserPhone) return true;
+      if (cleanUserIdPhone && a.phone && a.phone.replace(/\D/g, '').slice(-10) === cleanUserIdPhone) return true;
+      return false;
+    });
   }
 
   public async submitSellerApplication(
     data: Omit<SellerApplication, 'id' | 'created_at' | 'status'> & { status?: SellerApplication['status'] }
   ): Promise<SellerApplication> {
-    const existingIndex = this.applications.findIndex((a) => a.user_id === data.user_id);
+    const cleanPhone = data.phone ? data.phone.replace(/\D/g, '').slice(-10) : '';
+    const existingIndex = this.applications.findIndex((a) => {
+      if (a.user_id === data.user_id) return true;
+      if (cleanPhone && a.phone && a.phone.replace(/\D/g, '').slice(-10) === cleanPhone) return true;
+      return false;
+    });
     let app: SellerApplication;
 
     const targetStatus = data.status || 'under_review';
@@ -530,7 +569,7 @@ class MarketplaceService {
       this.applications.unshift(app);
     }
 
-    localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+    this.safeSaveApplications();
 
     if (isSupabaseConfigured()) {
       try {
@@ -557,15 +596,16 @@ class MarketplaceService {
       (a) => a.id === 'app-1790356298880' || a.store_name?.toLowerCase() === 'artsofhemaa'
     );
     if (existing) {
+      existing.user_id = 'usr_6300745350';
       existing.status = 'under_review';
-      localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+      this.safeSaveApplications();
       this.notify();
       return existing;
     }
 
     const artsofhemaaApp: SellerApplication = {
       id: 'app-1790356298880',
-      user_id: 'usr_artsofhemaa',
+      user_id: 'usr_6300745350',
       full_name: 'Hemaa',
       store_name: 'Artsofhemaa',
       seller_type: 'individual',
@@ -583,7 +623,7 @@ class MarketplaceService {
       created_at: '2026-09-25T16:30:00Z',
     };
     this.applications.unshift(artsofhemaaApp);
-    localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+    this.safeSaveApplications();
 
     if (isSupabaseConfigured()) {
       Promise.resolve(supabase.from('seller_applications').upsert([artsofhemaaApp])).catch(() => {});
@@ -606,7 +646,7 @@ class MarketplaceService {
       updated_at: new Date().toISOString(),
     };
     this.applications[index] = updatedApp;
-    localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+    this.safeSaveApplications();
 
     if (isSupabaseConfigured()) {
       try {
@@ -619,8 +659,6 @@ class MarketplaceService {
     this.notify();
     return updatedApp;
   }
-
-
 
   // --- ADMIN MODERATION ACTIONS ---
   public async adminApproveSeller(applicationId: string, internalNotes?: string): Promise<SellerProfile> {
@@ -660,7 +698,7 @@ class MarketplaceService {
       this.sellers.unshift(sellerProfile);
     }
 
-    localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+    this.safeSaveApplications();
     localStorage.setItem(STORAGE_SELLERS, JSON.stringify(this.sellers));
 
     if (isSupabaseConfigured()) {
@@ -689,7 +727,7 @@ class MarketplaceService {
       app.rejection_reason = reason;
       if (internalNotes !== undefined) app.internal_notes = internalNotes;
       app.updated_at = new Date().toISOString();
-      localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(this.applications));
+      this.safeSaveApplications();
 
       if (isSupabaseConfigured()) {
         try {

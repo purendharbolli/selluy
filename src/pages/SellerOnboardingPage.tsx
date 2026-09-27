@@ -137,7 +137,7 @@ export const SellerOnboardingPage: React.FC = () => {
   // Check for existing application and load draft
   useEffect(() => {
     if (user) {
-      const app = marketplaceService.getApplicationByUserId(user.id);
+      const app = marketplaceService.getApplicationByUserId(user.id, user.phone);
       if (app) {
         setExistingApp(app);
       }
@@ -181,7 +181,18 @@ export const SellerOnboardingPage: React.FC = () => {
       try {
         localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(formData));
       } catch (e) {
-        // Storage quota might be reached if base64 images are large
+        // If quota exceeded due to photos, save lightweight draft of all text fields
+        try {
+          const lightweightDraft = {
+            ...formData,
+            product_samples: [],
+            government_id_front: '',
+            government_id_back: '',
+          };
+          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(lightweightDraft));
+        } catch {
+          // Ignore
+        }
       }
     }
   }, [formData, isAuthenticated, currentStep]);
@@ -230,12 +241,59 @@ export const SellerOnboardingPage: React.FC = () => {
     });
   };
 
-  // Convert File to base64 Data URL
-  const fileToDataUrl = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
+  // Client-side image compressor: Resizes camera photos to max 1200px and compresses to lightweight JPEG (~120KB)
+  const compressImageFile = (file: File, maxDim = 1200, quality = 0.75): Promise<string> => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string) || '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+        return;
+      }
+
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
+      reader.onerror = () => resolve('');
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onerror = () => {
+          resolve((e.target?.result as string) || '');
+        };
+        img.onload = () => {
+          try {
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              return resolve((e.target?.result as string) || '');
+            }
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const compressed = canvas.toDataURL('image/jpeg', quality);
+            resolve(compressed);
+          } catch {
+            resolve((e.target?.result as string) || '');
+          }
+        };
+        img.src = (e.target?.result as string) || '';
+      };
       reader.readAsDataURL(file);
     });
   };
@@ -252,15 +310,11 @@ export const SellerOnboardingPage: React.FC = () => {
       if (newSamples.length >= 5) break;
       const file = files[i];
       if (!file.type.startsWith('image/')) continue;
-      if (file.size > 5 * 1024 * 1024) {
-        setErrorMsg('Image size must be under 5MB per photo.');
-        continue;
-      }
       try {
-        const url = await fileToDataUrl(file);
-        newSamples.push(url);
+        const url = await compressImageFile(file, 1200, 0.75);
+        if (url) newSamples.push(url);
       } catch (err) {
-        console.warn('Failed reading photo:', err);
+        console.warn('Failed compressing photo:', err);
       }
     }
 
@@ -280,12 +334,14 @@ export const SellerOnboardingPage: React.FC = () => {
     if (!file || index === null || index === undefined) return;
 
     try {
-      const url = await fileToDataUrl(file);
-      setFormData((prev) => {
-        const updated = [...prev.product_samples];
-        updated[index] = url;
-        return { ...prev, product_samples: updated };
-      });
+      const url = await compressImageFile(file, 1200, 0.75);
+      if (url) {
+        setFormData((prev) => {
+          const updated = [...prev.product_samples];
+          updated[index] = url;
+          return { ...prev, product_samples: updated };
+        });
+      }
     } catch (err) {
       console.warn('Failed replacing photo:', err);
     }
@@ -312,20 +368,18 @@ export const SellerOnboardingPage: React.FC = () => {
       setErrorMsg('Please select a valid image file (PNG, JPG, WebP).');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMsg('File size must be under 5MB.');
-      return;
-    }
 
     try {
-      const url = await fileToDataUrl(file);
-      if (type === 'front') {
-        setFormData((prev) => ({ ...prev, government_id_front: url }));
-      } else {
-        setFormData((prev) => ({ ...prev, government_id_back: url }));
+      const url = await compressImageFile(file, 1200, 0.75);
+      if (url) {
+        if (type === 'front') {
+          setFormData((prev) => ({ ...prev, government_id_front: url }));
+        } else {
+          setFormData((prev) => ({ ...prev, government_id_back: url }));
+        }
       }
     } catch (err) {
-      console.warn('Failed reading document:', err);
+      console.warn('Failed compressing document:', err);
     }
   };
 

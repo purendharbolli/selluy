@@ -48,25 +48,53 @@ export default async function handler(req, res) {
     }
 
     let targetHash = storedHash;
+    let foundUser = null;
 
-    // If targetHash not passed from client session cache, check cloud database
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+    const supabaseUrl =
+      process.env.VITE_SUPABASE_URL ||
+      process.env.SUPABASE_URL ||
+      'https://uxmoahxrzvxqzuvbmvwx.supabase.co';
+    const supabaseAnonKey =
+      process.env.VITE_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      'sb_publishable_MfxInnFBDCL0KZvEGB7Geg_454G_ibU';
 
+    const headers = {
+      'apikey': supabaseAnonKey,
+      'Authorization': `Bearer ${supabaseAnonKey}`,
+    };
+
+    // If targetHash not passed from client local storage, query cloud database
     if (!targetHash && supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('mock-instance')) {
+      // 1. Check user_credentials table
       try {
-        const dbRes = await fetch(`${supabaseUrl}/rest/v1/users?phone=eq.%2B91${cleanPhone}&select=*`, {
-          headers: {
-            'apikey': supabaseAnonKey,
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-          },
-        });
-        const users = await dbRes.json().catch(() => []);
-        if (Array.isArray(users) && users.length > 0 && users[0].password_hash) {
-          targetHash = users[0].password_hash;
+        const credRes = await fetch(
+          `${supabaseUrl}/rest/v1/user_credentials?phone=eq.${cleanPhone}&select=password_hash`,
+          { headers }
+        );
+        const creds = await credRes.json().catch(() => []);
+        if (Array.isArray(creds) && creds.length > 0 && creds[0].password_hash) {
+          targetHash = creds[0].password_hash;
+        }
+      } catch (credErr) {
+        console.warn('user_credentials lookup notice:', credErr);
+      }
+
+      // 2. Query users table
+      try {
+        const userRes = await fetch(
+          `${supabaseUrl}/rest/v1/users?or=(phone.eq.%2B91${cleanPhone},phone.eq.%2B91%20${cleanPhone},phone.ilike.*${cleanPhone}*)&select=*`,
+          { headers }
+        );
+        const users = await userRes.json().catch(() => []);
+        if (Array.isArray(users) && users.length > 0) {
+          foundUser = users[0];
+          if (!targetHash && foundUser.password_hash) {
+            targetHash = foundUser.password_hash;
+          }
         }
       } catch (dbErr) {
-        console.warn('Database lookup notice:', dbErr);
+        console.warn('Database users lookup notice:', dbErr);
       }
     }
 
@@ -81,10 +109,35 @@ export default async function handler(req, res) {
     const computedKey = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
 
     if (crypto.timingSafeEqual(Buffer.from(computedKey, 'hex'), Buffer.from(expectedKey, 'hex'))) {
+      const activeUser = foundUser
+        ? {
+            id: foundUser.id,
+            name: foundUser.name || `User ${cleanPhone.slice(-4)}`,
+            phone: foundUser.phone || `+91${cleanPhone}`,
+            email: foundUser.email || `${cleanPhone}@selluy.user`,
+            role: foundUser.role || 'buyer',
+            city: foundUser.city || 'Hyderabad',
+            avatar: foundUser.avatar,
+            password_configured: true,
+            created_at: foundUser.created_at || new Date().toISOString(),
+          }
+        : {
+            id: `usr_${cleanPhone}`,
+            name: `User ${cleanPhone.slice(-4)}`,
+            phone: `+91${cleanPhone}`,
+            email: `${cleanPhone}@selluy.user`,
+            role: 'buyer',
+            city: 'Hyderabad',
+            password_configured: true,
+            created_at: new Date().toISOString(),
+          };
+
       return res.status(200).json({
         success: true,
         message: 'Password authentication successful.',
         phone: `+91${cleanPhone}`,
+        password_hash: targetHash,
+        user: activeUser,
       });
     }
 

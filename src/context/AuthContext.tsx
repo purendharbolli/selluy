@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { data } = await supabase
             .from('users')
             .select('id, phone')
-            .eq('phone', `+91${cleanPhone}`)
+            .or(`phone.eq.+91${cleanPhone},phone.eq.+91 ${cleanPhone},phone.ilike.%${cleanPhone}%`)
             .maybeSingle();
 
           if (data) {
@@ -216,7 +216,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { data } = await supabase
             .from('users')
             .select('*')
-            .eq('phone', `+91${cleanPhone}`)
+            .or(`phone.eq.+91${cleanPhone},phone.eq.+91 ${cleanPhone},phone.ilike.%${cleanPhone}%`)
             .maybeSingle();
 
           if (data) {
@@ -237,8 +237,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeUser = {
           id: verifiedUserId,
           name: `User ${cleanPhone.slice(-4)}`,
+          email: `${cleanPhone}@selluy.user`,
           phone: `+91${cleanPhone}`,
-          role: 'customer',
+          role: 'buyer',
           city: '', // Prompts city onboarding
           avatar: undefined,
           created_at: new Date().toISOString(),
@@ -299,6 +300,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (user) {
           const updated: User = {
             ...user,
+            email: user.email || `${cleanPhone}@selluy.user`,
+            role: user.role === 'customer' ? 'buyer' : user.role,
             password_configured: true,
             password_hash: data.password_hash || user.password_hash,
             updated_at: new Date().toISOString(),
@@ -310,8 +313,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
               await supabase
                 .from('users')
-                .update({ password_configured: true, password_hash: data.password_hash })
-                .eq('id', user.id);
+                .upsert([updated]);
             } catch (err) {
               console.warn('Supabase password state notice:', err);
             }
@@ -327,7 +329,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Direct login with mobile number + password
+  // Direct login with mobile number + password (Cross-device synced)
   const loginWithPassword = async (
     phone: string,
     password: string
@@ -353,43 +355,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
-        let verifiedUserId = `usr_${cleanPhone}`;
-        let existingUser: User | null = null;
-
-        const saved = localStorage.getItem(STORAGE_USER);
-        if (saved) {
+        // Cache the password hash on this device so future local logins are instantaneous
+        if (data.password_hash) {
           try {
-            const parsed = JSON.parse(saved);
-            if (parsed.phone && parsed.phone.includes(cleanPhone)) {
-              existingUser = parsed;
-            }
+            localStorage.setItem(`selluy_pwd_${cleanPhone}`, data.password_hash);
           } catch (e) {
             // Ignore
           }
         }
 
-        if (!existingUser && isSupabaseConfigured()) {
-          try {
-            const { data: supaUser } = await supabase
-              .from('users')
-              .select('*')
-              .eq('phone', `+91${cleanPhone}`)
-              .maybeSingle();
-            if (supaUser) existingUser = supaUser as User;
-          } catch (e) {
-            console.warn('Supabase lookup notice:', e);
-          }
-        }
+        let verifiedUserId = `usr_${cleanPhone}`;
+        let activeUser: User;
 
-        const activeUser: User = existingUser || {
-          id: verifiedUserId,
-          name: `User ${cleanPhone.slice(-4)}`,
-          phone: `+91${cleanPhone}`,
-          role: 'customer',
-          city: 'Hyderabad',
-          password_configured: true,
-          created_at: new Date().toISOString(),
-        };
+        if (data.user) {
+          activeUser = data.user as User;
+        } else {
+          let existingUser: User | null = null;
+          const saved = localStorage.getItem(STORAGE_USER);
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (parsed.phone && parsed.phone.includes(cleanPhone)) {
+                existingUser = parsed;
+              }
+            } catch (e) {
+              // Ignore
+            }
+          }
+
+          if (!existingUser && isSupabaseConfigured()) {
+            try {
+              const { data: supaUser } = await supabase
+                .from('users')
+                .select('*')
+                .or(`phone.eq.+91${cleanPhone},phone.eq.+91 ${cleanPhone},phone.ilike.%${cleanPhone}%`)
+                .maybeSingle();
+              if (supaUser) existingUser = supaUser as User;
+            } catch (e) {
+              console.warn('Supabase lookup notice:', e);
+            }
+          }
+
+          activeUser = existingUser || {
+            id: verifiedUserId,
+            name: `User ${cleanPhone.slice(-4)}`,
+            email: `${cleanPhone}@selluy.user`,
+            phone: `+91${cleanPhone}`,
+            role: 'buyer',
+            city: 'Hyderabad',
+            password_configured: true,
+            created_at: new Date().toISOString(),
+          };
+        }
 
         activeUser.password_configured = true;
         setUser(activeUser);

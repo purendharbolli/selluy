@@ -1,9 +1,51 @@
 -- =========================================================
--- SELLUY: FIX SELLER APPLICATIONS & RESTORE 'Artsofhemaa'
+-- SELLUY: DATABASE SCHEMA FIX FOR CROSS-DEVICE AUTH & APPLICATIONS
 -- Copy this ENTIRE script -> Paste into Supabase SQL Editor -> Click RUN
 -- =========================================================
 
--- 1. Create the seller_applications table (No hard FK constraint so submission never fails)
+-- 1. Ensure columns exist on users table for cross-device authentication
+alter table public.users add column if not exists password_hash text;
+alter table public.users add column if not exists password_configured boolean default false;
+alter table public.users add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now());
+
+-- 2. Allow phone (+91) OTP accounts without immediate email requirement
+alter table public.users alter column email drop not null;
+
+-- 3. Support both 'buyer' and 'customer' roles in constraint
+alter table public.users drop constraint if exists users_role_check;
+alter table public.users add constraint users_role_check check (role in ('buyer', 'customer', 'seller', 'admin'));
+
+-- 4. Enable Row Level Security (RLS) with open policies for users table
+alter table public.users enable row level security;
+drop policy if exists "Public users access" on public.users;
+drop policy if exists "Public users insert" on public.users;
+drop policy if exists "Public users update" on public.users;
+drop policy if exists "Public users delete" on public.users;
+
+create policy "Public users access" on public.users for select using (true);
+create policy "Public users insert" on public.users for insert with check (true);
+create policy "Public users update" on public.users for update using (true);
+create policy "Public users delete" on public.users for delete using (true);
+
+-- 5. Dedicated user_credentials table for reliable cross-device password sync
+create table if not exists public.user_credentials (
+  phone text primary key,
+  password_hash text not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+alter table public.user_credentials enable row level security;
+drop policy if exists "Public access user_credentials select" on public.user_credentials;
+drop policy if exists "Public access user_credentials insert" on public.user_credentials;
+drop policy if exists "Public access user_credentials update" on public.user_credentials;
+drop policy if exists "Public access user_credentials delete" on public.user_credentials;
+
+create policy "Public access user_credentials select" on public.user_credentials for select using (true);
+create policy "Public access user_credentials insert" on public.user_credentials for insert with check (true);
+create policy "Public access user_credentials update" on public.user_credentials for update using (true);
+create policy "Public access user_credentials delete" on public.user_credentials for delete using (true);
+
+-- 6. Create the seller_applications table (No hard FK constraint so submission never fails)
 create table if not exists public.seller_applications (
   id text primary key,
   user_id text not null,
@@ -37,7 +79,6 @@ create table if not exists public.seller_applications (
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 2. Enable Row Level Security (RLS) with open policies so all devices can submit & review
 alter table public.seller_applications enable row level security;
 drop policy if exists "Public insert seller applications" on public.seller_applications;
 drop policy if exists "Public read seller applications" on public.seller_applications;
@@ -49,17 +90,7 @@ create policy "Public read seller applications" on public.seller_applications fo
 create policy "Public update seller applications" on public.seller_applications for update using (true);
 create policy "Public delete seller applications" on public.seller_applications for delete using (true);
 
--- 3. Fix RLS on users table so phone logins & registrations can persist
-alter table public.users enable row level security;
-drop policy if exists "Public users access" on public.users;
-drop policy if exists "Public users insert" on public.users;
-drop policy if exists "Public users update" on public.users;
-
-create policy "Public users access" on public.users for select using (true);
-create policy "Public users insert" on public.users for insert with check (true);
-create policy "Public users update" on public.users for update using (true);
-
--- 4. Restore the applicant's submitted application from screenshot ('Artsofhemaa' - app-1790356298880)
+-- 7. Restore the applicant's submitted application from screenshot ('Artsofhemaa' - app-1790356298880)
 insert into public.seller_applications (
   id,
   user_id,

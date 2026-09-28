@@ -153,6 +153,23 @@ class MarketplaceService {
       } else if (appRes.data) {
         this.isApplicationsTableMissing = false;
         const cloudApps = appRes.data as SellerApplication[];
+
+        // Check if there are locally stored applications that were submitted while Supabase was not connected
+        const unsyncedApps = this.applications.filter(
+          (localApp) => !cloudApps.some((c) => c.id === localApp.id)
+        );
+
+        if (unsyncedApps.length > 0) {
+          for (const pendingApp of unsyncedApps) {
+            try {
+              await supabase.from('seller_applications').upsert([pendingApp]);
+              cloudApps.unshift(pendingApp);
+            } catch (syncErr) {
+              console.warn('Auto-sync local application to cloud warning:', syncErr);
+            }
+          }
+        }
+
         this.applications = cloudApps;
         this.safeSaveApplications();
       }

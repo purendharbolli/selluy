@@ -82,7 +82,7 @@ export const CATEGORIES = [
 
 export const SellerOnboardingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, role, sellerProfile } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Steps: 1 (Account), 2 (Business), 3 (Products & Samples), 4 (Verification & Pickup), 5 (Review & Submit), 6 (Submitted)
@@ -142,11 +142,10 @@ export const SellerOnboardingPage: React.FC = () => {
     const checkExisting = async () => {
       if (!user) return;
 
-      // 1. Check local in-memory/localStorage cache
+      // 1. Check local in-memory/localStorage cache for instant display
       const localApp = marketplaceService.getApplicationByUserId(user.id, user.phone);
       if (localApp && isMounted) {
         setExistingApp(localApp);
-        return;
       }
 
       // 2. Query Supabase directly in case local cache is empty or still syncing
@@ -637,45 +636,51 @@ export const SellerOnboardingPage: React.FC = () => {
     );
   }
 
-  // If user already has an application and is not in editing mode
-  if (existingApp && !isEditingExisting && currentStep !== 6) {
-    if (existingApp.status === 'approved') {
-      return (
-        <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-6 animate-fadeIn">
-          <div className="w-20 h-20 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border-4 border-emerald-100 shadow-soft-sm">
-            <ShieldCheck className="w-10 h-10 text-emerald-600" />
-          </div>
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold">
-            Verified Seller Status Active
-          </div>
-
-          <h1 className="text-3xl font-black text-stone-950 font-display">
-            You are a Verified Selluy Seller!
-          </h1>
-
-          <p className="text-stone-600 text-sm max-w-md mx-auto leading-relaxed">
-            Your store <strong className="text-stone-950">{existingApp.store_name}</strong> is verified in {existingApp.city}. You can publish drops, manage stock, and track orders directly from your Seller Studio.
-          </p>
-
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              to="/seller/dashboard"
-              className="px-7 py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition flex items-center gap-2"
-            >
-              <Store className="w-4 h-4" />
-              <span>Go to Seller Studio</span>
-            </Link>
-            <Link
-              to="/"
-              className="px-6 py-3 rounded-full border border-sand-300 text-stone-700 hover:bg-sand-50 font-bold text-xs transition"
-            >
-              Marketplace Home
-            </Link>
-          </div>
+  // CASE A: User is an approved verified seller
+  if (
+    role === 'seller' ||
+    sellerProfile?.verification_status === 'approved' ||
+    existingApp?.status === 'approved'
+  ) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-6 animate-fadeIn">
+        <div className="w-20 h-20 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border-4 border-emerald-100 shadow-soft-sm">
+          <ShieldCheck className="w-10 h-10 text-emerald-600" />
         </div>
-      );
-    }
+
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold">
+          Verified Seller Status Active
+        </div>
+
+        <h1 className="text-3xl font-black text-stone-950 font-display">
+          You are a Verified Selluy Seller!
+        </h1>
+
+        <p className="text-stone-600 text-sm max-w-md mx-auto leading-relaxed">
+          Your store <strong className="text-stone-950">{existingApp?.store_name || sellerProfile?.store_name || 'Artsofhemaa'}</strong> is verified in {existingApp?.city || sellerProfile?.city || 'Hyderabad'}. You can publish drops, manage stock, and track orders directly from your Seller Studio.
+        </p>
+
+        <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            to="/seller/dashboard"
+            className="px-7 py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition flex items-center gap-2"
+          >
+            <Store className="w-4 h-4" />
+            <span>Go to Seller Studio</span>
+          </Link>
+          <Link
+            to="/"
+            className="px-6 py-3 rounded-full border border-sand-300 text-stone-700 hover:bg-sand-50 font-bold text-xs transition"
+          >
+            Marketplace Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // CASE B: User has a pending, under-review, or rejected application and is not in editing mode
+  if (existingApp && !isEditingExisting && currentStep !== 6) {
 
     if (
       existingApp.status === 'under_review' ||

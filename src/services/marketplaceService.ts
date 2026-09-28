@@ -214,8 +214,23 @@ class MarketplaceService {
     return this.sellers.find((s) => s.id === id);
   }
 
-  public getSellerByUserId(userId: string): SellerProfile | undefined {
-    return this.sellers.find((s) => s.user_id === userId);
+  public getSellerByUserId(userId: string, phone?: string): SellerProfile | undefined {
+    const directMatch = this.sellers.find((s) => s.user_id === userId);
+    if (directMatch) return directMatch;
+
+    if (phone) {
+      const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+      const app = this.applications.find(
+        (a) => a.phone && a.phone.replace(/\D/g, '').slice(-10) === cleanPhone && (a.status === 'approved' || (a.status as string) === 'verified')
+      );
+      if (app) {
+        const matched = this.sellers.find(
+          (s) => s.user_id === app.user_id || (s.store_name && app.store_name && s.store_name.toLowerCase().trim() === app.store_name.toLowerCase().trim())
+        );
+        if (matched) return matched;
+      }
+    }
+    return undefined;
   }
 
   // --- PRODUCTS (LOCAL-FIRST RANKING & ZERO-FAKE-DATA) ---
@@ -646,13 +661,31 @@ class MarketplaceService {
 
     if (isSupabaseConfigured()) {
       try {
+        // Ensure user exists in users table to satisfy foreign key constraint on seller_profiles.user_id
+        const cleanPhone = app.phone ? app.phone.replace(/\D/g, '').slice(-10) : '';
+        const { data: userRow } = await supabase.from('users').select('id').eq('id', app.user_id).maybeSingle();
+        if (!userRow) {
+          await supabase.from('users').upsert([{
+            id: app.user_id,
+            name: app.full_name,
+            email: app.email || (cleanPhone ? `${cleanPhone}@selluy.user` : 'seller@selluy.user'),
+            phone: app.phone || (cleanPhone ? `+91${cleanPhone}` : null),
+            role: 'seller',
+            city: app.city,
+          }]);
+        } else {
+          await supabase.from('users').update({ role: 'seller' }).eq('id', app.user_id);
+        }
+
+        // Omit non-existent column (seller_type) from db payload
+        const { seller_type, ...dbProfile } = sellerProfile as any;
+
         await Promise.all([
           supabase.from('seller_applications').update({
             status: 'approved',
             internal_notes: app.internal_notes,
           }).eq('id', applicationId),
-          supabase.from('seller_profiles').upsert([sellerProfile]),
-          supabase.from('users').update({ role: 'seller' }).eq('id', app.user_id),
+          supabase.from('seller_profiles').upsert([dbProfile]),
         ]);
       } catch (err) {
         console.warn('Supabase admin approve seller error:', err);

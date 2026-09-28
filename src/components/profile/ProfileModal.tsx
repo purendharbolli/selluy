@@ -41,7 +41,7 @@ export interface ProfileModalProps {
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, initialTab = 'profile' }) => {
   const navigate = useNavigate();
-  const { user, updateUser, sendOtp, verifyOtp, setPassword, loginWithPassword } = useAuth();
+  const { user, updateUser, sendOtp, verifyOtp, setPassword, loginWithPassword, sellerProfile, role } = useAuth();
   const { availableCities } = useLocation();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'security' | 'seller'>(initialTab);
@@ -111,7 +111,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
         setSecurityFeedback(null);
 
         // Fetch seller application
-        const app = marketplaceService.getApplicationByUserId(user.id);
+        const app = marketplaceService.getApplicationByUserId(user.id, user.phone);
         setSellerApp(app || null);
 
         // Fetch buyer's real orders
@@ -1468,7 +1468,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
             {activeTab === 'seller' && (
               <div className="space-y-4">
                 {/* CASE 1: VERIFIED ACTIVE SELLER */}
-                {sellerApp?.status === 'approved' || user?.role === 'seller' ? (
+                {sellerApp?.status === 'approved' || user?.role === 'seller' || role === 'seller' || sellerProfile?.verification_status === 'approved' ? (
                   <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -1481,7 +1481,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
                     </div>
 
                     <p className="text-xs text-emerald-800 leading-relaxed">
-                      Your store <strong className="text-emerald-950">{sellerApp?.store_name || 'Your Studio'}</strong> is verified to publish products and fulfill local customer orders.
+                      Your store <strong className="text-emerald-950">{sellerApp?.store_name || sellerProfile?.store_name || 'Artsofhemaa'}</strong> is verified to publish products and fulfill local customer orders.
                     </p>
 
                     <div className="pt-2 flex flex-col sm:flex-row gap-2">
@@ -1500,7 +1500,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
                         type="button"
                         onClick={() => {
                           onClose();
-                          const storeId = sellerApp?.id || marketplaceService.getSellerByUserId(user?.id || '')?.id || user?.id;
+                          const storeId = sellerProfile?.id || sellerApp?.id || 'seller-artsofhemaa';
                           navigate(`/seller/${storeId}`);
                         }}
                         className="flex-1 py-2.5 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"

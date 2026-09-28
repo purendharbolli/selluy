@@ -53,11 +53,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [needsCityOnboarding, setNeedsCityOnboarding] = useState<boolean>(false);
   const [activeOtpHash, setActiveOtpHash] = useState<string>('');
 
-  // Sync seller profile whenever user changes
+  // Sync seller profile and cloud role whenever user changes or marketplace updates
   useEffect(() => {
-    if (user) {
-      const profile = marketplaceService.getSellerByUserId(user.id);
-      if (profile) setSellerProfile(profile);
+    let isMounted = true;
+
+    const syncUserData = async () => {
+      if (!user) {
+        setSellerProfile(null);
+        setNeedsCityOnboarding(false);
+        return;
+      }
+
+      // Check seller profile in memory/service
+      let profile = marketplaceService.getSellerByUserId(user.id, user.phone);
+      if (profile && isMounted) {
+        setSellerProfile(profile);
+      }
+
+      // Check application status
+      const app = marketplaceService.getApplicationByUserId(user.id, user.phone);
+      const isApproved =
+        app?.status === 'approved' ||
+        profile?.verification_status === 'approved' ||
+        (profile?.verification_status as string) === 'verified';
+
+      if (isApproved && user.role !== 'seller' && isMounted) {
+        const updatedUser: User = { ...user, role: 'seller' };
+        setUser(updatedUser);
+        localStorage.setItem(STORAGE_USER, JSON.stringify(updatedUser));
+      }
+
+      // Check Supabase users table and seller_profiles
+      if (isSupabaseConfigured()) {
+        try {
+          const cleanPhone = user.phone ? user.phone.replace(/\D/g, '').slice(-10) : '';
+          const filters = [`id.eq.${user.id}`];
+          if (cleanPhone) filters.push(`phone.ilike.%${cleanPhone}%`);
+
+          const { data: dbUser } = await supabase
+            .from('users')
+            .select('*')
+            .or(filters.join(','))
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (dbUser && isMounted) {
+            if (dbUser.role === 'seller' && user.role !== 'seller') {
+              const updatedUser: User = { ...user, role: 'seller' };
+              setUser(updatedUser);
+              localStorage.setItem(STORAGE_USER, JSON.stringify(updatedUser));
+            }
+          }
+
+          // If no sellerProfile found yet, query Supabase seller_profiles directly
+          if (!profile) {
+            const { data: dbSeller } = await supabase
+              .from('seller_profiles')
+              .select('*')
+              .or(`user_id.eq.${user.id},store_name.ilike.%Artsofhemaa%`)
+              .limit(1)
+              .maybeSingle();
+
+            if (dbSeller && isMounted) {
+              const loadedSeller = dbSeller as SellerProfile;
+              setSellerProfile(loadedSeller);
+              if (user.role !== 'seller') {
+                const updatedUser: User = { ...user, role: 'seller' };
+                setUser(updatedUser);
+                localStorage.setItem(STORAGE_USER, JSON.stringify(updatedUser));
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Sync user error:', e);
+        }
+      }
 
       // Check if user has no city set
       if (!user.city || user.city === 'Select City') {
@@ -65,11 +136,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setNeedsCityOnboarding(false);
       }
-    } else {
-      setSellerProfile(null);
-      setNeedsCityOnboarding(false);
-    }
-  }, [user]);
+    };
+
+    syncUserData();
+    const unsub = marketplaceService.subscribe(syncUserData);
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, [user?.id, user?.phone]);
 
   // Request 6-digit OTP for Indian Mobile (+91) via Fast2SMS
   const sendOtp = async (

@@ -327,7 +327,8 @@ class MarketplaceService {
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('products').insert([newProduct]);
+        const { status, rejection_reason, variants, delivery_info, seller, category, ...dbPayload } = newProduct as any;
+        await supabase.from('products').insert([dbPayload]);
       } catch (err) {
         console.warn('Supabase product insert:', err);
       }
@@ -351,13 +352,35 @@ class MarketplaceService {
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('products').update(updates).eq('id', id);
+        const { status, rejection_reason, variants, delivery_info, seller, category, ...dbUpdates } = updates as any;
+        if (Object.keys(dbUpdates).length > 0) {
+          await supabase.from('products').update(dbUpdates).eq('id', id);
+        }
       } catch (err) {
         console.warn('Supabase product update:', err);
       }
     }
     this.notify();
     return updatedProduct;
+  }
+
+  // Stock inventory update
+  public async sellerUpdateStock(id: string, sellerId: string, newStock: number): Promise<Product> {
+    const product = this.products.find((p) => p.id === id);
+    if (!product) throw new Error('Product not found');
+    if (product.seller_id !== sellerId) {
+      throw new Error('Unauthorized: You can only adjust inventory for your own products.');
+    }
+
+    const safeStock = Math.max(0, Math.floor(newStock));
+    const nextStatus: ProductStatus = safeStock === 0 ? 'out_of_stock' : (product.status === 'out_of_stock' ? 'approved' : (product.status || 'approved'));
+    const nextActive = nextStatus === 'approved';
+
+    return this.updateProduct(id, {
+      stock: safeStock,
+      status: nextStatus,
+      active: nextActive,
+    });
   }
 
   // Authorized seller product update
@@ -441,7 +464,10 @@ class MarketplaceService {
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('seller_profiles').update(updates).eq('id', sellerId);
+        const { seller_type, ...dbUpdates } = updates as any;
+        if (Object.keys(dbUpdates).length > 0) {
+          await supabase.from('seller_profiles').update(dbUpdates).eq('id', sellerId);
+        }
       } catch (err) {
         console.warn('Supabase seller profile update:', err);
       }

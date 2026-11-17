@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * ShoppingAtmosphere
- * Art-directed, spatial commerce background ambience matching the Selluy Gen-Z design.
+ * Art-directed, spatial commerce background ambience matching the Selloi Gen-Z design.
  * Features the actual floating 3D assets: blurred shopping bags, location pin, and luminous color pools.
  * Purely decorative, aria-hidden, zero layout shift or pointer interception.
  */

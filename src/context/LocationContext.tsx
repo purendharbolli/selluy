@@ -26,11 +26,12 @@ const LocationContext = createContext<LocationContextType | undefined>(undefined
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [selectedCity, setSelectedCityState] = useState<string>(() => {
-    return localStorage.getItem('selluy_city') || 'Hyderabad';
+    return localStorage.getItem('selloi_city') || localStorage.getItem('selluy_city') || 'Hyderabad';
   });
 
   const setSelectedCity = (city: string) => {
     setSelectedCityState(city);
+    localStorage.setItem('selloi_city', city);
     localStorage.setItem('selluy_city', city);
   };
 

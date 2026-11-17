@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, Lock, ArrowRight, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { SelluyLogo } from '../components/common/SelluyLogo';
+import { SelloiLogo } from '../components/common/SelloiLogo';
 
 export const AdminLoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { adminLogin } = useAuth();
 
-  const [email, setEmail] = useState('admin@selluy.in');
+  const [email, setEmail] = useState('admin@selloi.in');
   const [secretKey, setSecretKey] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

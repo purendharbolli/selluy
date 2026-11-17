@@ -269,11 +269,11 @@ export const ProductDetails: React.FC = () => {
               </p>
             </div>
 
-            {/* Selluy Guarantee & Delivery Pill */}
+            {/* Selloi Guarantee & Delivery Pill */}
             <div className="p-4 rounded-3xl bg-blue-50/60 border border-blue-200/80 flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
               <div className="text-xs text-stone-800">
-                <span className="font-bold block text-stone-950">Selluy Direct Guarantee</span>
+                <span className="font-bold block text-stone-950">Selloi Direct Guarantee</span>
                 Handcrafted or curated locally in {product.city}. Direct creator contact with verified studio provenance.
               </div>
             </div>

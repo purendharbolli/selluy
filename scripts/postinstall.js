@@ -8,7 +8,7 @@ const dest = path.resolve('node_modules/rollup');
 if (fs.existsSync(src) && fs.existsSync(dest)) {
   try {
     fs.cpSync(src, dest, { recursive: true, force: true });
-    console.log('[Selluy] Applied @rollup/wasm-node fallback for Windows compatibility.');
+    console.log('[Selloi] Applied @rollup/wasm-node fallback for Windows compatibility.');
   } catch (err) {
     // Non-fatal if already patched
   }

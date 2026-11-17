@@ -1,5 +1,5 @@
 -- =========================================================
--- SELLUY COMPLETE SUPABASE DATABASE SETUP SCRIPT
+-- SELLOI COMPLETE SUPABASE DATABASE SETUP SCRIPT
 -- Paste this ENTIRE script into the Supabase SQL Editor and click RUN
 -- =========================================================
 

@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" fill="none">
   <defs>
-    <linearGradient id="selluyFavGrad" x1="6" y1="6" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+    <linearGradient id="selloiFavGrad" x1="6" y1="6" x2="50" y2="50" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stopColor="#1D4ED8" />
       <stop offset="50%" stopColor="#2563EB" />
       <stop offset="100%" stopColor="#4F46E5" />
     </linearGradient>
-    <radialGradient id="selluyGoldRivetFav" cx="50%" cy="50%" r="50%">
+    <radialGradient id="selloiGoldRivetFav" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stopColor="#FEF08A" />
-      <stop offset="60%" stopColor="#F59E0B" />
+      <stop offset="50%" stopColor="#FACC15" />
       <stop offset="100%" stopColor="#D97706" />
     </radialGradient>
   </defs>
-  <rect x="3" y="3" width="50" height="50" rx="15" fill="url(#selluyFavGrad)" />
+  <rect x="3" y="3" width="50" height="50" rx="15" fill="url(#selloiFavGrad)" />
   <path d="M36.5 19C35 15.5 31.5 14 27.5 14C22.25 14 18 18 18 22.5C18 27.5 22.5 29.5 29 31.5C36 33.5 40 36.5 40 42C40 47.5 35 50.5 27 50.5C21 50.5 16.5 47.5 15 43" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M15 43L12 41L15 37" stroke="#93C5FD" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="39" cy="15" r="3.5" fill="url(#selluyGoldRivetFav)" stroke="#FFFFFF" stroke-width="1.2" />
+  <circle cx="39" cy="15" r="3.5" fill="url(#selloiGoldRivetFav)" stroke="#FFFFFF" stroke-width="1.2" />
 </svg>

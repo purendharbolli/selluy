@@ -312,7 +312,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeUser = {
           id: verifiedUserId,
           name: `User ${cleanPhone.slice(-4)}`,
-          email: `${cleanPhone}@selluy.user`,
+          email: `${cleanPhone}@selloi.user`,
           phone: `+91${cleanPhone}`,
           role: 'buyer',
           city: '', // Prompts city onboarding
@@ -375,7 +375,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (user) {
           const updated: User = {
             ...user,
-            email: user.email || `${cleanPhone}@selluy.user`,
+            email: user.email || `${cleanPhone}@selloi.user`,
             role: user.role === 'customer' ? 'buyer' : user.role,
             password_configured: true,
             password_hash: data.password_hash || user.password_hash,
@@ -474,7 +474,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           activeUser = existingUser || {
             id: verifiedUserId,
             name: `User ${cleanPhone.slice(-4)}`,
-            email: `${cleanPhone}@selluy.user`,
+            email: `${cleanPhone}@selloi.user`,
             phone: `+91${cleanPhone}`,
             role: 'buyer',
             city: 'Hyderabad',
@@ -523,14 +523,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Dedicated secure Admin login
   const adminLogin = async (email: string, secretKey: string): Promise<boolean> => {
-    const validEmails = ['admin@selluy.in', 'rohit@selluy.in'];
-    const validKey = 'selluy@admin2026';
+    const validEmails = ['admin@selloi.in', 'rohit@selloi.in', 'admin@selluy.in', 'rohit@selluy.in'];
+    const validKey = 'selloi@admin2026';
+    const legacyKey = 'selluy@admin2026';
 
     const normalizedEmail = email.trim().toLowerCase();
-    if ((validEmails.includes(normalizedEmail) || normalizedEmail.includes('admin')) && secretKey === validKey) {
+    if ((validEmails.includes(normalizedEmail) || normalizedEmail.includes('admin')) && (secretKey === validKey || secretKey === legacyKey)) {
       const adminUser: User = {
         id: 'usr_admin_master',
-        name: 'Selluy Super Admin',
+        name: 'Selloi Super Admin',
         email: normalizedEmail,
         role: 'admin',
         city: 'Hyderabad',

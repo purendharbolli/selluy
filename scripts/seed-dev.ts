@@ -1,5 +1,5 @@
 /**
- * SELLUY DEVELOPMENT ONLY SEED SCRIPT
+ * SELLOI DEVELOPMENT ONLY SEED SCRIPT
  * 
  * WARNING: This script is exclusively for local development testing in an isolated staging environment.
  * NEVER run this against production or expose mock data to customer views.

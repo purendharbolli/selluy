@@ -1585,7 +1585,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, ini
                     </div>
 
                     <h4 className="text-sm font-extrabold text-stone-900">
-                      Sell on Selluy
+                      Sell on Selloi
                     </h4>
 
                     <p className="text-xs text-stone-600 max-w-sm mx-auto leading-relaxed">

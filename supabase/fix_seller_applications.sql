@@ -1,5 +1,5 @@
 -- =========================================================
--- SELLUY: DATABASE SCHEMA FIX FOR CROSS-DEVICE AUTH & APPLICATIONS
+-- SELLOI: DATABASE SCHEMA FIX FOR CROSS-DEVICE AUTH & APPLICATIONS
 -- Copy this ENTIRE script -> Paste into Supabase SQL Editor -> Click RUN
 -- =========================================================
 

@@ -13,7 +13,7 @@ function cleanIndianPhone(phone) {
 }
 
 /**
- * Selluy Password Setup & Update Serverless Function (Vercel)
+ * Selloi Password Setup & Update Serverless Function (Vercel)
  * Route: POST /api/set-password
  * Body: { phone: "9876543210", password: "..." }
  */
@@ -129,7 +129,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({
               id: `usr_${cleanPhone}`,
               name: `User ${cleanPhone.slice(-4)}`,
-              email: `${cleanPhone}@selluy.user`,
+              email: `${cleanPhone}@selloi.user`,
               phone: `+91${cleanPhone}`,
               role: 'buyer',
               city: 'Hyderabad',

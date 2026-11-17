@@ -20,7 +20,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('selluy_cart');
+    const saved = localStorage.getItem('selloi_cart') || localStorage.getItem('selluy_cart');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* ignore */ }
     }
@@ -28,7 +28,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [wishlist, setWishlist] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('selluy_wishlist');
+    const saved = localStorage.getItem('selloi_wishlist') || localStorage.getItem('selluy_wishlist');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* ignore */ }
     }
@@ -36,10 +36,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
+    localStorage.setItem('selloi_cart', JSON.stringify(cart));
     localStorage.setItem('selluy_cart', JSON.stringify(cart));
   }, [cart]);
 
   useEffect(() => {
+    localStorage.setItem('selloi_wishlist', JSON.stringify(wishlist));
     localStorage.setItem('selluy_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 

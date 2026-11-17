@@ -13,7 +13,7 @@ function cleanIndianPhone(phone) {
 }
 
 /**
- * Selluy Password Login Serverless Function (Vercel)
+ * Selloi Password Login Serverless Function (Vercel)
  * Route: POST /api/login-password
  * Body: { phone: "9876543210", password: "...", storedHash?: "..." }
  */
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
             id: foundUser.id,
             name: foundUser.name || `User ${cleanPhone.slice(-4)}`,
             phone: foundUser.phone || `+91${cleanPhone}`,
-            email: foundUser.email || `${cleanPhone}@selluy.user`,
+            email: foundUser.email || `${cleanPhone}@selloi.user`,
             role: foundUser.role || 'buyer',
             city: foundUser.city || 'Hyderabad',
             avatar: foundUser.avatar,
@@ -125,7 +125,7 @@ export default async function handler(req, res) {
             id: `usr_${cleanPhone}`,
             name: `User ${cleanPhone.slice(-4)}`,
             phone: `+91${cleanPhone}`,
-            email: `${cleanPhone}@selluy.user`,
+            email: `${cleanPhone}@selloi.user`,
             role: 'buyer',
             city: 'Hyderabad',
             password_configured: true,

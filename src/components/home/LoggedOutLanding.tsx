@@ -188,7 +188,7 @@ export const LoggedOutLanding: React.FC = () => {
             {/* LEFT COLUMN: Clear Commerce Hierarchy */}
             <div className="lg:col-span-6 text-center lg:text-left space-y-5">
               
-              {/* Eyebrow: SELLUY • LOCAL MARKETPLACE */}
+              {/* Eyebrow: SELLOI • LOCAL MARKETPLACE */}
               <motion.div
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -197,7 +197,7 @@ export const LoggedOutLanding: React.FC = () => {
               >
                 <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#FEF08A] text-amber-950 border border-amber-300/80 text-[10px] sm:text-xs font-extrabold uppercase tracking-wider shadow-2xs">
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span>SELLUY • LOCAL MARKETPLACE</span>
+                  <span>SELLOI • LOCAL MARKETPLACE</span>
                 </div>
               </motion.div>
 
@@ -235,7 +235,7 @@ export const LoggedOutLanding: React.FC = () => {
                 transition={{ duration: 0.4, delay: 0.24 }}
                 className="text-xs sm:text-sm text-stone-600 font-normal leading-relaxed max-w-lg mx-auto lg:mx-0"
               >
-                Discover products around you, buy directly from local sellers, or bring your own products to Selluy.
+                Discover products around you, buy directly from local sellers, or bring your own products to Selloi.
               </motion.p>
 
               {/* Primary & Secondary CTAs */}
@@ -288,7 +288,7 @@ export const LoggedOutLanding: React.FC = () => {
                 {/* Ultra High-Resolution 1200x896 3D Product Composition */}
                 <img
                   src="/homepage/hero-cluster.png"
-                  alt="Selluy local marketplace products cluster"
+                  alt="Selloi local marketplace products cluster"
                   className="relative z-10 w-full h-auto object-contain drop-shadow-2xl"
                   loading="eager"
                 />
@@ -499,7 +499,7 @@ export const LoggedOutLanding: React.FC = () => {
               >
                 <img
                   src="/homepage/social-phone.png"
-                  alt="Sell from Instagram and WhatsApp on Selluy"
+                  alt="Sell from Instagram and WhatsApp on Selloi"
                   className="w-full h-auto object-contain drop-shadow-xl"
                   loading="lazy"
                 />
@@ -519,7 +519,7 @@ export const LoggedOutLanding: React.FC = () => {
 
               {/* Exact Prominent Supporting Text */}
               <p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-normal">
-                Bring your products to Selluy and reach local customers through a dedicated marketplace.
+                Bring your products to Selloi and reach local customers through a dedicated marketplace.
               </p>
 
               <div className="pt-2 flex justify-center lg:justify-start">
@@ -649,7 +649,7 @@ export const LoggedOutLanding: React.FC = () => {
             <div className="hidden sm:block w-16 h-14 relative shrink-0">
               <img
                 src="/homepage/banner-yellow-bag-transparent.png"
-                alt="Selluy Bag"
+                alt="Selloi Bag"
                 className="w-full h-full object-contain filter drop-shadow-md select-none"
               />
             </div>

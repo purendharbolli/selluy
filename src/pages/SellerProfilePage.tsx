@@ -250,7 +250,7 @@ export const SellerProfilePage: React.FC = () => {
             <p>
               <strong>Status:</strong>{' '}
               <Badge variant={isVerified ? 'success' : 'warning'} size="sm">
-                {isVerified ? 'Verified by Selluy' : 'Pending Verification'}
+                {isVerified ? 'Verified by Selloi' : 'Pending Verification'}
               </Badge>
             </p>
           </div>

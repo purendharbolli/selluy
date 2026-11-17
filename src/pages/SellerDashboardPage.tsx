@@ -226,7 +226,7 @@ export const SellerDashboardPage: React.FC = () => {
         </div>
         <h2 className="text-2xl font-black text-stone-950 font-display">Seller Studio Portal</h2>
         <p className="text-xs text-stone-600 max-w-sm mx-auto">
-          Please log in to your Selluy account to access your seller dashboard and manage your pieces.
+          Please log in to your Selloi account to access your seller dashboard and manage your pieces.
         </p>
         <Link to="/">
           <Button size="md" className="mt-2">Go to Sign In</Button>
@@ -772,7 +772,7 @@ export const SellerDashboardPage: React.FC = () => {
             </div>
             <div>
               <span className="font-black text-stone-950 font-display text-base tracking-tight block leading-tight">
-                SELLUY<span className="text-blue-600">.</span>
+                SELLOI<span className="text-[#FACC15]">.</span>
               </span>
               <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
                 Seller Workspace
@@ -1342,7 +1342,7 @@ export const SellerDashboardPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-black text-stone-950 font-display">Products</h1>
-                <p className="text-xs text-stone-500 mt-0.5">Manage everything you&apos;re selling on Selluy.</p>
+                <p className="text-xs text-stone-500 mt-0.5">Manage everything you&apos;re selling on Selloi.</p>
               </div>
 
               <Button
@@ -2172,7 +2172,7 @@ export const SellerDashboardPage: React.FC = () => {
                 <div>
                   <h4 className="font-extrabold text-emerald-950">Verified Seller</h4>
                   <p className="text-emerald-800 text-[11px]">
-                    Your seller account has been verified by Selluy. Government ID documents remain strictly private.
+                    Your seller account has been verified by Selloi. Government ID documents remain strictly private.
                   </p>
                 </div>
               </div>
@@ -2343,7 +2343,7 @@ export const SellerDashboardPage: React.FC = () => {
                 </div>
                 <div className="p-3.5 rounded-2xl bg-sand-50 border border-sand-200">
                   <span className="text-stone-400 block text-[11px]">Primary Email</span>
-                  <span className="font-bold text-stone-900">{user.email || 'seller@selluy.in'}</span>
+                  <span className="font-bold text-stone-900">{user.email || 'seller@selloi.in'}</span>
                 </div>
                 <div className="p-3.5 rounded-2xl bg-sand-50 border border-sand-200">
                   <span className="text-stone-400 block text-[11px]">Role</span>
@@ -2626,7 +2626,7 @@ export const SellerDashboardPage: React.FC = () => {
               <div className="space-y-1">
                 <h4 className="font-extrabold text-stone-900">How does product moderation work?</h4>
                 <p className="text-stone-600">
-                  Every product submitted goes through Selluy curation to ensure genuine craftsmanship, clear photos, and accurate descriptions. Reviews usually complete within 12–24 hours.
+                  Every product submitted goes through Selloi curation to ensure genuine craftsmanship, clear photos, and accurate descriptions. Reviews usually complete within 12–24 hours.
                 </p>
               </div>
 
@@ -2676,7 +2676,7 @@ export const SellerDashboardPage: React.FC = () => {
             <div className="space-y-2 text-xs">
               <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200">
                 <span className="font-bold text-emerald-900 block">Seller Verified</span>
-                <span className="text-emerald-700 text-[11px]">Your seller account {activeProfile.store_name} has been verified by Selluy curation team.</span>
+                <span className="text-emerald-700 text-[11px]">Your seller account {activeProfile.store_name} has been verified by Selloi curation team.</span>
               </div>
 
               {rejectedProductsCount > 0 && (

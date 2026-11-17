@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { SelluyLogo } from './SelluyLogo';
+import { SelloiLogo } from './SelloiLogo';
 import { Instagram, Youtube, Twitter } from 'lucide-react';
 
 export const Footer: React.FC = () => {
@@ -13,7 +13,7 @@ export const Footer: React.FC = () => {
           {/* Logo & Tagline */}
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center">
-              <SelluyLogo variant="full" size="sm" showTagline={false} />
+              <SelloiLogo variant="full" size="sm" showTagline={false} />
             </Link>
             <span className="text-xs text-stone-400 border-l border-stone-200 pl-3">
               Shop local. Support local.
@@ -63,7 +63,7 @@ export const Footer: React.FC = () => {
 
         {/* Bottom Copyright */}
         <div className="pt-6 text-center text-xs text-stone-400">
-          <p>© 2025 Selluy. All rights reserved.</p>
+          <p>© 2026 Selloi. All rights reserved.</p>
         </div>
 
       </div>

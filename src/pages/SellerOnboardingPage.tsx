@@ -31,7 +31,8 @@ import { POPULAR_INDIAN_CITIES } from '../components/common/CityOnboardingModal'
 import { AuthModal } from '../components/auth/AuthModal';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-const DRAFT_STORAGE_KEY = 'selluy_seller_draft_v2';
+const DRAFT_STORAGE_KEY = 'selloi_seller_draft_v2';
+const LEGACY_DRAFT_KEY = 'selluy_seller_draft_v2';
 
 export const INDIAN_STATES = [
   'Andhra Pradesh',
@@ -177,7 +178,7 @@ export const SellerOnboardingPage: React.FC = () => {
 
       // 3. If no existing application, check draft storage
       if (isMounted) {
-        const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY) || localStorage.getItem(LEGACY_DRAFT_KEY);
         if (savedDraft) {
           try {
             const parsed = JSON.parse(savedDraft);
@@ -253,6 +254,7 @@ export const SellerOnboardingPage: React.FC = () => {
 
   const discardDraft = () => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_DRAFT_KEY);
     setHasDraftRestored(false);
     setFormData({
       full_name: user?.name || '',
@@ -555,6 +557,7 @@ export const SellerOnboardingPage: React.FC = () => {
 
       // Clear draft storage
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_DRAFT_KEY);
       setSubmittedApp(app);
       setExistingApp(app);
       setIsEditingExisting(false);
@@ -585,7 +588,7 @@ export const SellerOnboardingPage: React.FC = () => {
               Sell Directly to Local Buyers Across Your City
             </h1>
             <p className="text-stone-600 text-sm leading-relaxed">
-              Selluy connects authentic local makers, artisans, and independent brands directly with nearby customers. Zero arbitrary listing fees. Direct payouts.
+              Selloi connects authentic local makers, artisans, and independent brands directly with nearby customers. Zero arbitrary listing fees. Direct payouts.
             </p>
           </div>
 
@@ -653,7 +656,7 @@ export const SellerOnboardingPage: React.FC = () => {
         </div>
 
         <h1 className="text-3xl font-black text-stone-950 font-display">
-          You are a Verified Selluy Seller!
+          You are a Verified Selloi Seller!
         </h1>
 
         <p className="text-stone-600 text-sm max-w-md mx-auto leading-relaxed">
@@ -943,10 +946,10 @@ export const SellerOnboardingPage: React.FC = () => {
       <div className="text-center space-y-2">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200">
           <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-          Selluy Verified Seller Onboarding
+          Selloi Verified Seller Onboarding
         </div>
         <h1 className="text-3xl sm:text-4xl font-black text-stone-950 font-display">
-          Apply to Sell on Selluy
+          Apply to Sell on Selloi
         </h1>
         <p className="text-stone-600 text-sm max-w-lg mx-auto">
           We curate genuine local makers and independent brands. Complete the 5 steps below to get your verified seller badge.
@@ -1161,7 +1164,7 @@ export const SellerOnboardingPage: React.FC = () => {
                 className="w-full px-3.5 py-2.5 rounded-xl border border-sand-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
               <span className="text-[11px] text-stone-400 mt-1 block">
-                This will be your storefront name displayed on Selluy.
+                This will be your storefront name displayed on Selloi.
               </span>
             </div>
 
@@ -1503,7 +1506,7 @@ export const SellerOnboardingPage: React.FC = () => {
           <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 flex items-start gap-3 text-xs text-blue-900">
             <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              <strong>Private &amp; Restricted View:</strong> Your government identity documents are encrypted and accessible exclusively by Selluy verification moderators. They will never be shared publicly or visible on your storefront.
+              <strong>Private &amp; Restricted View:</strong> Your government identity documents are encrypted and accessible exclusively by Selloi verification moderators. They will never be shared publicly or visible on your storefront.
             </p>
           </div>
 
@@ -1864,7 +1867,7 @@ export const SellerOnboardingPage: React.FC = () => {
               className="mt-0.5 rounded border-sand-300 text-blue-600 focus:ring-blue-500"
             />
             <span className="text-xs text-stone-600 leading-relaxed">
-              I certify that all details provided are accurate and genuine. I agree to Selluy's Seller Code of Conduct, zero-counterfeit policy, and honest local fulfillment guidelines.
+              I certify that all details provided are accurate and genuine. I agree to Selloi's Seller Code of Conduct, zero-counterfeit policy, and honest local fulfillment guidelines.
             </span>
           </label>
 

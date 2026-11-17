@@ -694,7 +694,7 @@ class MarketplaceService {
           await supabase.from('users').upsert([{
             id: app.user_id,
             name: app.full_name,
-            email: app.email || (cleanPhone ? `${cleanPhone}@selluy.user` : 'seller@selluy.user'),
+            email: app.email || (cleanPhone ? `${cleanPhone}@selloi.user` : 'seller@selloi.user'),
             phone: app.phone || (cleanPhone ? `+91${cleanPhone}` : null),
             role: 'seller',
             city: app.city,

@@ -21,7 +21,7 @@ import { useLocation } from '../../context/LocationContext';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { marketplaceService } from '../../services/marketplaceService';
-import { SelluyLogo } from './SelluyLogo';
+import { SelloiLogo } from './SelloiLogo';
 import { LocationModal } from './LocationModal';
 import { AuthModal } from '../auth/AuthModal';
 import { ProfileModal } from '../profile/ProfileModal';
@@ -65,10 +65,10 @@ export const Navbar: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-18 gap-4">
             
-            {/* 1. Official Selluy Logo (Clean without bulky city pill in main bar) */}
+            {/* 1. Official Selloi Logo (Clean without bulky city pill in main bar) */}
             <div className="flex items-center">
               <Link to="/" className="flex items-center">
-                <SelluyLogo variant="full" size="md" showTagline={false} />
+                <SelloiLogo variant="full" size="md" showTagline={false} />
               </Link>
             </div>
 

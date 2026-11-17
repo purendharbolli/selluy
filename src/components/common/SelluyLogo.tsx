@@ -1,6 +1,6 @@
 import React from 'react';
 
-export interface SelluyLogoProps {
+export interface SelloiLogoProps {
   variant?: 'full' | 'symbol' | 'mobile' | 'monochrome' | 'wordmark' | 'badge';
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   showTagline?: boolean;
@@ -8,13 +8,15 @@ export interface SelluyLogoProps {
   theme?: 'light' | 'dark';
 }
 
+export type SelluyLogoProps = SelloiLogoProps;
+
 /**
- * SELLUY Official Brand Logo System
+ * SELLOI Official Brand Logo System
  * Symbol: The Artisan Nexus — An interlocking geometric ribbon forming the 'S' monogram
- * integrated with a craftsman's parcel loop and a golden verification rivet (#F59E0B).
- * Gradient: Deep Cobalt (#1D4ED8) -> Royal Electric (#2563EB) -> Radiant Violet (#6366F1).
+ * integrated with a craftsman's parcel loop and a golden verification rivet (#FACC15).
+ * Palette: Cobalt/Electric Blue (#2563EB) + Bright Gold (#FACC15) + Radiant Violet (#6366F1).
  */
-export const SelluyLogo: React.FC<SelluyLogoProps> = ({
+export const SelloiLogo: React.FC<SelloiLogoProps> = ({
   variant = 'full',
   size = 'md',
   showTagline = false,
@@ -45,32 +47,32 @@ export const SelluyLogo: React.FC<SelluyLogoProps> = ({
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className="shrink-0 transition-all duration-300 group-hover:scale-105 group-hover:drop-shadow-md"
-      aria-label="Selluy Artisan Nexus Emblem"
+      aria-label="Selloi Artisan Nexus Emblem"
     >
       <defs>
         {/* Primary Ribbon Gradient */}
-        <linearGradient id="selluyMainGrad" x1="6" y1="6" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+        <linearGradient id="selloiMainGrad" x1="6" y1="6" x2="50" y2="50" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor={isMonochrome ? '#0F172A' : '#1D4ED8'} />
           <stop offset="50%" stopColor={isMonochrome ? '#1E293B' : '#2563EB'} />
-          <stop offset="100%" stopColor={isMonochrome ? '#334155' : '#4F46E5'} />
+          <stop offset="100%" stopColor={isMonochrome ? '#334155' : '#6366F1'} />
         </linearGradient>
 
         {/* Dynamic Highlight Gradient */}
-        <linearGradient id="selluyShineGrad" x1="12" y1="8" x2="38" y2="48" gradientUnits="userSpaceOnUse">
+        <linearGradient id="selloiShineGrad" x1="12" y1="8" x2="38" y2="48" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.45" />
           <stop offset="60%" stopColor="#60A5FA" stopOpacity="0.1" />
           <stop offset="100%" stopColor="#818CF8" stopOpacity="0.3" />
         </linearGradient>
 
-        {/* Golden Brass Eyelet / Verification Rivet */}
-        <radialGradient id="selluyGoldRivet" cx="50%" cy="50%" r="50%">
+        {/* Golden Brass Eyelet / Verification Rivet (Yellow #FACC15 Accent) */}
+        <radialGradient id="selloiGoldRivet" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#FEF08A" />
-          <stop offset="60%" stopColor="#F59E0B" />
+          <stop offset="50%" stopColor="#FACC15" />
           <stop offset="100%" stopColor="#D97706" />
         </radialGradient>
 
         {/* Ambient Glow Filter */}
-        <filter id="selluyDropGlow" x="0" y="0" width="56" height="56" filterUnits="userSpaceOnUse">
+        <filter id="selloiDropGlow" x="0" y="0" width="56" height="56" filterUnits="userSpaceOnUse">
           <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#2563EB" floodOpacity="0.25" />
         </filter>
       </defs>
@@ -82,8 +84,8 @@ export const SelluyLogo: React.FC<SelluyLogoProps> = ({
         width="50"
         height="50"
         rx="15"
-        fill="url(#selluyMainGrad)"
-        filter="url(#selluyDropGlow)"
+        fill="url(#selloiMainGrad)"
+        filter="url(#selloiDropGlow)"
       />
 
       {/* Inner Bevel Border */}
@@ -93,14 +95,8 @@ export const SelluyLogo: React.FC<SelluyLogoProps> = ({
         width="49"
         height="49"
         rx="14.5"
-        stroke="url(#selluyShineGrad)"
+        stroke="url(#selloiShineGrad)"
         strokeWidth="1.2"
-      />
-
-      {/* Upper Interlocking Ribbon: Handle / Parcel Bow */}
-      <path
-        d="M38 18.5C38 14.36 34.42 11 29.8 11H25C19.48 11 15 15.48 15 21C15 25.5 18 29.2 22.5 30.5L32 33.2C36.4 34.5 39.5 38.5 39.5 43.1C39.5 48.6 35 53 29.5 53"
-        stroke="none"
       />
 
       {/* Continuous Geometric S Ribbon */}
@@ -135,7 +131,7 @@ export const SelluyLogo: React.FC<SelluyLogoProps> = ({
         cx="39"
         cy="15"
         r="3.5"
-        fill="url(#selluyGoldRivet)"
+        fill="url(#selloiGoldRivet)"
         stroke="#FFFFFF"
         strokeWidth="1.2"
       />
@@ -158,9 +154,9 @@ export const SelluyLogo: React.FC<SelluyLogoProps> = ({
       <div className={`inline-flex flex-col ${className}`}>
         <div className="flex items-baseline">
           <span className={`font-black tracking-tight leading-none ${currentSize.font} ${textColor} font-display`}>
-            SELLUY
+            SELLOI
           </span>
-          <span className="w-2 h-2 rounded-full bg-blue-600 ml-1 mb-0.5 inline-block" />
+          <span className="w-2 h-2 rounded-full bg-[#FACC15] border border-amber-400 ml-1 mb-0.5 inline-block shadow-xs" />
         </div>
         {showTagline && (
           <span className={`font-semibold tracking-wider uppercase mt-1 ${tagColor} ${currentSize.sub}`}>
@@ -177,9 +173,9 @@ export const SelluyLogo: React.FC<SelluyLogoProps> = ({
         {SymbolIcon}
         <div className="flex items-baseline">
           <span className={`font-black text-xl tracking-tight ${textColor} font-display`}>
-            SELLUY
+            SELLOI
           </span>
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-0.5 inline-block" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#FACC15] border border-amber-400 ml-0.5 inline-block" />
         </div>
       </div>
     );
@@ -192,9 +188,9 @@ export const SelluyLogo: React.FC<SelluyLogoProps> = ({
       <div className="flex flex-col justify-center">
         <div className="flex items-baseline leading-none">
           <span className={`font-black tracking-tight ${currentSize.font} ${textColor} font-display`}>
-            SELLUY
+            SELLOI
           </span>
-          <span className="w-2 h-2 rounded-full bg-blue-600 ml-1 inline-block shrink-0 shadow-xs" />
+          <span className="w-2 h-2 rounded-full bg-[#FACC15] border border-amber-400 ml-1 inline-block shrink-0 shadow-xs" />
         </div>
         {showTagline && (
           <span className={`font-bold tracking-widest uppercase mt-1 ${tagColor} ${currentSize.sub}`}>
@@ -206,4 +202,5 @@ export const SelluyLogo: React.FC<SelluyLogoProps> = ({
   );
 };
 
-export default SelluyLogo;
+export const SelluyLogo = SelloiLogo;
+export default SelloiLogo;

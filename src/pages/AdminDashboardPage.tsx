@@ -42,7 +42,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 
 const SQL_FIX_SCRIPT = `-- =========================================================
--- SELLUY: DATABASE SCHEMA FIX FOR CROSS-DEVICE AUTH & APPLICATIONS
+-- SELLOI: DATABASE SCHEMA FIX FOR CROSS-DEVICE AUTH & APPLICATIONS
 -- Copy this ENTIRE script -> Paste into Supabase SQL Editor -> Click RUN
 -- =========================================================
 
@@ -328,7 +328,7 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-black text-stone-950 font-display">
-              Selluy Governance &amp; Moderation
+              Selloi Governance &amp; Moderation
             </h1>
             <p className="text-xs text-stone-500">
               Strict two-sided moderation: verified sellers, approved products, and real local orders
@@ -409,7 +409,7 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-3xl p-6 border border-sand-200 shadow-soft-sm">
-            <h3 className="text-sm font-bold text-stone-900 mb-3">Moderation Architecture Guidelines (Selluy 2026)</h3>
+            <h3 className="text-sm font-bold text-stone-900 mb-3">Moderation Architecture Guidelines (Selloi 2026)</h3>
             <ul className="text-xs text-stone-600 space-y-2 list-disc pl-5">
               <li><strong>Zero Fake Data:</strong> The marketplace displays only real approved products from vetted indie sellers. Never fabricate sales, reviews, or mock users.</li>
               <li><strong>Seller Verification:</strong> Review maker craftsmanship, studio city, and photo samples before verifying. Private verification docs are strictly restricted to admin.</li>

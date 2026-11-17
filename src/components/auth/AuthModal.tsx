@@ -16,7 +16,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { SelluyLogo } from '../common/SelluyLogo';
+import { SelloiLogo } from '../common/SelloiLogo';
 import { Button } from '../ui/Button';
 import { normalizeIndianPhone, isValidIndianPhone } from '../../utils/phone';
 
@@ -72,6 +72,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     if (isOpen) {
       const savedPhone =
         initialPhone ||
+        localStorage.getItem('selloi_last_phone') ||
         localStorage.getItem('selluy_last_phone') ||
         '';
 
@@ -131,14 +132,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setOtp(newOtp);
 
     if (digit && index < 5) {
-      const nextInput = document.getElementById(`selluy-otp-${index + 1}`);
+      const nextInput = document.getElementById(`selloi-otp-${index + 1}`);
       nextInput?.focus();
     }
   };
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      const prevInput = document.getElementById(`selluy-otp-${index - 1}`);
+      const prevInput = document.getElementById(`selloi-otp-${index - 1}`);
       prevInput?.focus();
     }
   };
@@ -171,6 +172,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       const res = await loginWithPassword(clean, password);
       if (res.success) {
+        localStorage.setItem('selloi_last_phone', clean);
         localStorage.setItem('selluy_last_phone', clean);
         setSuccessNotice('Welcome back! Logging in...');
         setScreen('success');
@@ -230,6 +232,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       const res = await verifyOtp(phone, token);
       if (res.success) {
+        localStorage.setItem('selloi_last_phone', phone);
         localStorage.setItem('selluy_last_phone', phone);
         // If brand new user or password not yet configured, offer optional password creation
         if (res.isNewUser || !res.user?.password_configured) {
@@ -269,8 +272,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const clean = normalizeIndianPhone(phone);
       const res = await setPassword(newPassword, clean);
       if (res.success) {
+        localStorage.setItem('selloi_last_phone', clean);
         localStorage.setItem('selluy_last_phone', clean);
-        setSuccessNotice('Password set! Logging into Selluy...');
+        setSuccessNotice('Password set! Logging into Selloi...');
         setScreen('success');
         setTimeout(() => {
           onClose();
@@ -284,7 +288,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   const handleSkipPassword = () => {
-    setSuccessNotice('Welcome to Selluy!');
+    setSuccessNotice('Welcome to Selloi!');
     setScreen('success');
     setTimeout(() => {
       onClose();
@@ -362,6 +366,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const clean = normalizeIndianPhone(phone);
       const res = await setPassword(newPassword, clean);
       if (res.success) {
+        localStorage.setItem('selloi_last_phone', phone);
         localStorage.setItem('selluy_last_phone', phone);
         setSuccessNotice('Password successfully updated! Logging you in...');
         setScreen('success');
@@ -434,7 +439,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 350, damping: 20 }}
               >
-                <SelluyLogo variant="symbol" size="lg" className="mb-3" />
+                <SelloiLogo variant="symbol" size="lg" className="mb-3" />
               </motion.div>
 
               <h3 className="text-2xl font-black text-stone-950 font-display tracking-tight">
@@ -452,7 +457,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   ? 'Verify identity'
                   : screen === 'forgot-reset'
                   ? 'Create new password'
-                  : 'Welcome to Selluy!'}
+                  : 'Welcome to Selloi!'}
               </h3>
 
               <p className="text-xs sm:text-sm text-stone-600 mt-1 max-w-xs leading-relaxed">
@@ -671,7 +676,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   {otp.map((digit, idx) => (
                     <input
                       key={idx}
-                      id={`selluy-otp-${idx}`}
+                      id={`selloi-otp-${idx}`}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
@@ -731,7 +736,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div className="relative flex items-center rounded-2xl border border-sand-300 focus-within:ring-2 focus-within:ring-blue-500 bg-sand-50/50 overflow-hidden">
                     <input
                       type={showNewPassword ? 'text' : 'password'}
-                      placeholder="e.g. Selluy@123"
+                      placeholder="e.g. Selloi@123"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       className="w-full px-3.5 py-2.5 text-sm font-medium text-stone-900 bg-transparent focus:outline-none"
@@ -892,7 +897,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   {otp.map((digit, idx) => (
                     <input
                       key={idx}
-                      id={`selluy-otp-${idx}`}
+                      id={`selloi-otp-${idx}`}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}

@@ -97,7 +97,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           route: 'q',
-          message: `Your Selluy verification code is ${otp}. Valid for 5 minutes.`,
+          message: `Your Selloi verification code is ${otp}. Valid for 5 minutes.`,
           language: 'english',
           flash: 0,
           numbers: cleanPhone,
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
     // ATTEMPT 2: Quick SMS Route (route: 'q') via GET query parameters
     if (!dispatchSuccess) {
       try {
-        const getUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${encodeURIComponent(apiKey)}&route=q&message=${encodeURIComponent(`Your Selluy verification code is ${otp}. Valid for 5 minutes.`)}&language=english&flash=0&numbers=${encodeURIComponent(cleanPhone)}`;
+        const getUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${encodeURIComponent(apiKey)}&route=q&message=${encodeURIComponent(`Your Selloi verification code is ${otp}. Valid for 5 minutes.`)}&language=english&flash=0&numbers=${encodeURIComponent(cleanPhone)}`;
         const qGetRes = await fetch(getUrl, {
           method: 'GET',
           headers: {

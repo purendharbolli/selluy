@@ -12,7 +12,7 @@ export const VerifiedBadge: React.FC<{ size?: 'sm' | 'md'; showText?: boolean }>
       className={`inline-flex items-center gap-1 font-semibold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 ${
         isSm ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs'
       }`}
-      title="Verified Seller: Identity and store vetted by Selluy"
+      title="Verified Seller: Identity and store vetted by Selloi"
     >
       <CheckCircle2 className={`${isSm ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-emerald-600 fill-emerald-100`} />
       {showText && <span>Verified</span>}
